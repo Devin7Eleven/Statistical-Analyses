@@ -1,0 +1,185 @@
+---
+title: "Gender and Degrees, A Chi Squared Test"
+output: 
+  html_document:
+    theme: cerulean
+    code_folding: hide
+---
+
+
+<!-- Directions
+
+Come up with a chi squared test analysis of your own creation. 
+
+* Write the Background and clearly state your question. Then collect data and perform the chi-squared test analysis in order to answer your question. Use the proper order of first, ask the question, then second, figure out the answer.
+
+* You can use data from 
+    - An R data set
+    - the internet (like weather data, Facebook data, or sports data) 
+    - your own experiment 
+    - your own observational study
+* However,     
+    - Do not violate the "Human Subjects Rules" of the university: http://www.byui.edu/executive-strategy-and-planning/institutional-research/research-and-assessments/research-and-surveys
+
+* You need a sample size large enough to meet the requirements of the chi squared test. Unfortunately, the sample size is completely dependent on the situation you select. A good rule of thumb is 10 observations per "combination-group" in your data.
+
+-->
+
+```{r include=FALSE}
+library(mosaic)
+library(ResourceSelection)
+library(DT)
+library(tidyverse)
+library(car)
+library(pander)
+library(readr)
+library(ggplot2)
+
+GSS2012 <- read_delim("../../Data/GSS2012.csv", 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE)
+```
+# {.tabset .tabset-fade}
+
+## Data Analysis
+
+### Background & Question
+
+<img src="../../Images/stem.jpg" style="width:50%;margin-right:15px;float:right;">
+
+In a Glassdoor research [study](https://www.glassdoor.com/research/pipeline-problem-college-majors-gender-pay-gap/), it was discovered "[...] majority of the top 10 highest-paying college majors are in STEM fields, while other studies have found that STEM majors’ starting salaries are about $15,500 higher on average than their non-STEM peers, have higher employment rates, and earn about $300,000 more than non-STEM majors over their entire careers" (Moore, 2017) [link](https://www.glassdoor.com/blog/stem-degree-higher-salary/).
+
+A topic of interest today is the issue regarding a supposed wage gap between men and women. Men are known for making more money than their female counterparts, with obvious exceptions. However, whether this is due to true sexism or a product of other factors is something of ongoing debate with much propaganda on both sides of the discussion. It is indisputable however that some majors are more lucrative than others due to the professions that students get prepared for during their undergraduate or graduate studies. Assuming the above is true that STEM degrees earn more than non-STEM degrees, then could it possibly be that the reason for the supposed wage gap is due to degree preferences among men and women? Do women prefer non-STEM degrees the most?
+
+To gain insight to this problem, we will be conducting an analysis from data gathered from 1972 to 2012 where respondents answered several questions, one of which being the degree they earned (whether undergraduate, graduate, or vocational) and their gender.
+
+### Model & Hypothesis
+
+The analysis is conducted by the chi-squared formula:
+$$
+  \chi^2 = \sum_{i=1}^m \frac{(O_i - E_i)^2}{E_i}
+$$
+where Greek letter chi (squared) ($\chi^2$) is equal to the sigma notation ($\sum$) times the observed counts ($O_i$) minus the expected counts ($E_i$) all squared over the expected counts again. The observed counts are straightforward, they are what we see actually happen. The expected counts are calculated by taking the row and column total values and multiplying them together then dividing it by the overall total.
+
+Our hypothesis is based upon the notion of *independency*, or in other words, if gender and degree choice have a linkage or not.
+
+$$
+  H_0: \text{Degree and gender are independent from each other}
+$$
+$$
+  H_a: \text{Degree and gender are not independent and are associated}
+$$
+$$
+  \text{Level of Significance}\\
+  \alpha = 0.05
+$$
+
+It is not meaningful to us if the two groups are independent. As such, the data below helps us to find out if previous claims of women not choosing STEM degrees is truly apparent. Before any tests can be conducted however, an explanation of how the data was organized is necessary.
+
+### Data Analysis & Exploration
+
+**Please read the disclaimer before proceeding for background on why Applied Health was not included with STEM**
+
+The data was obtained by combining various degrees into broad well known groups, namely:
+
+A) STEM
+
+  - Agriculture/Horticulture, Biology, Chemistry, Computer Science, Engineering, Forestry, Geology, Industry & Tech, Mathematics, Medicine (Theoretical), Physics, Ecology, Aviation/Aeronatics, Statistics/Biostatistics, Electronics, Urban and Regional Planning, Mechanics/Machine Trade, Gerontology
+
+B) Business
+
+  - Accounting/Bookkeeping, Advertising, Business Administration, Economics, Finance, Home Economics, Law, Marketing, Administrative Science/Public Administration
+
+C) Applied Health
+
+  - Allied Health, Dentistry, Nursing, Optometry, Pharmacy, Veterinary Medicine, Health
+
+D) Liberal Arts
+
+  - Anthropology, Architecture, Art, Communications/Speech, Communication Disorders, Education, English, Foreign Language, Geography, History, Journalism, Law Enforcement, Library Science, Music, Philosophy, Physical Education, Psychology, Political Science/International Relations, Sociology, Special Education, Theater Arts, Theology, Liberal Arts, General Sciences, Social Work, General Studies, Industrial Relations, Child/Human/Family Development, Food Science/Nutrition/Culinary Arts, Social Sciences, Human Services/Human Resources, Visual Arts/Graphic Design/Design and Drafting, Fine Arts, Humanities, Ethnic Studies, Educational Administration, Television/Film, Criminology/Criminal Justice, Dance, Public Relations, Textiles/Cloth, Parks and Recreation
+
+E) Other
+
+  - Other, Vocational (Trade)
+  
+Below is the full table of observed counts. This includes the answers of all respondents without corrupted data (of which, around 56,352 answers were lost). Despite the large amount not accounted for, there is still a substantial amount of responses to analyze. Notice the quantity of male to female ratio for Applied Health, Liberal Arts, and STEM.
+
+```{r}
+major <- GSS2012 %>%
+  filter(!major1 %in% c(0, 98)) %>%
+  mutate(Gender = case_when(sex == 1 ~ 'Male',
+                            sex == 2 ~ 'Female')) %>%
+  mutate(Major = case_when(
+    major1 %in% c(3, 8, 11, 14, 18, 22, 24, 27, 33, 34, 41, 59, 68, 69, 72, 73, 74, 76) ~ "STEM",
+    major1 %in% c(1, 2, 9, 17, 20, 26, 29, 32, 71) ~ "Business",
+    major1 %in% c(5, 6, 7, 12, 13, 16, 19, 21, 23, 25, 28, 30, 31, 35, 39, 40, 42, 43, 44, 45, 46, 47, 49, 51, 52, 53, 56, 57, 58, 60, 61, 62, 63, 64, 65, 66, 67, 70, 75, 77, 78, 79) ~ "Liberal Arts",
+    major1 %in% c(50, 54) ~ "Other",
+    major1 %in% c(4, 15, 36, 37, 38, 48, 55) ~ "Applied Health"
+    )
+    )
+
+major <- table(major$Major, major$Gender)
+
+pander(major)
+```
+
+On face value, we see a significant difference between men and women in 4 categories where the genders are separated by nearly twice the amount of the other, and more so for Applied Health. The diagnostic test below gives us our p value.
+
+```{r}
+chi.major <- chisq.test(major)
+pander(chi.major)
+```
+
+With a ***p value = 1.108e-12***, we in no doubt succeed to reject the null and acknowledge that there is an association between gender and degree choice. It is important to ensure that the Chi-Squared test is appropriate however. We can easily accomplish this by running the next code and showing the output.
+
+```{r}
+pander(chi.major$expected)
+```
+
+All expected counts are greater than 5 (think of the level of significance) which fulfills the requirement for the Chi-Squared test to go forward. Below is a visualization of the data from a bar chart.
+
+### Visualization of Data
+
+**For those giving feedback, please tell me how to shift the legend over to the right more so it doesn't obstruct the bar graphs :) **
+
+```{r}
+barplot(rbind('STEM' = c(Male = 91, Female = 47), 'Business' = c(Male = 90, Female = 75), 'Liberal Arts' = c(Male = 116, Female = 213), 'Other' = c(Male = 9, Female = 4), 'Applied Health' = c(Male = 13, Female = 51)), col = c("blue", "red", "purple", "gray", "firebrick"), beside = TRUE, legend.text = TRUE, xlab = "Gender", ylab = "Number of Degrees", main = "Gender and Degree Preferences", xlim = c(0, 15))
+```
+
+From the graph, we see more uniformity across males (for STEM, business, and liberal arts) than females in terms of degrees. Females show more disparity with the types of degrees they tend to go after, with the liberal arts being substantially more popular than all the others. For both genders, the "Other" category is the least popular albeit males dominate what seems to be mostly vocational schools (also known as trades). Surprisingly, women have higher numbers in Applied Health degrees than men which would be interesting to see which degrees exactly is most popular among the genders within that field. On the other end, we see what we concluded earlier, that STEM degrees are more popular among men which is a possible explanation for higher payout.
+
+```{r}
+barplot(rbind('Dentistry' = c(Male = 1, Female = 1), 'Nursing' = c(Male = 3, Female = 33), 'Pharmacy' = c(Male = 2, Female = 0), 'Veterinary Medicine' = c(Male = 1, Female = 0), 'Health' = c(Male = 6, Female = 17)), beside = TRUE, legend.text = TRUE, main = "In-depth Look Into Applied Health Degrees", xlab = "Gender", ylab = "Number of Degrees", col = c("skyblue", "pink", "steelblue", "green", "firebrick"), xlim = c(0, 15))
+```
+
+This graph takes a deeper look into the Applied Health field with the associated degrees rewarded. Nurses are predominantly female by a landslide, with men delving into more varied professions by a slimmer margin. It is interesting to see the broad "Health" degree to also be higher among females. This degree probably correlates with higher percentages of females working as health receptionists or assistants.
+
+### Interpretation & Conclusion
+
+Examining our residuals helps us determine how much our counts differed from 0, or from what was observed and what was expected.
+
+```{r}
+pander(chi.major$residuals)
+```
+
+We see the greatest variation stem (haha, get it?) from the STEM degrees with **-3.318** and **3.669** for females and males respectively. This had the highest contribution to the probability and test statistic that we see with applied health following closely behind, which makes sense given what we have seen.
+
+In conclusion, we affirm that women are less likely to seek after STEM degrees and, from what we seen in the tables and graphs, tend to pursue Liberal Arts and caretaker positions which makes sense from an evolutionary psychology standpoint. Perhaps there is more to this than initially thought, from gender trends, to availability of education, and the amount of lost responses from the study. However, a popular theory is that men tend to be more "thing" oriented with their natural psyche attracted to creation as women find purpose in nurturing and caretaking the defenseless. However, this is a subject best pursued by those within the social sciences and perhaps even STEM fields such as neuroscience.
+
+## Do Medical Professions Count As STEM?
+
+<img src="../../Images/nurse.jpg" style="width:50%;margin-left:15px;float:right;">
+
+The problem with categorization is that often many subjects have overlap with one another, creating difficulties in deciding where they belong. An example of this is is in the medical professions such as dentistry, pharmacy, and nursing which utilize STEM properties but don't necessarily belong to it in the colloquial sense. Why is that? The reality is that the topic is hazy, as all things can be considered *STEM* if the term is applied loosely enough (Ex. Art uses paint, and paint is made of chemicals, and chemicals involve chemistry and physics, so art should be considered STEM).
+
+According to [Forbes](https://www.forbes.com/sites/sarahhedgecock/2016/03/29/is-nursing-a-stem-field-does-it-matter/?sh=49f6d9905b47) (avoiding the politically charged narrative towards the end), the reasoning is so: "Nursing is an applied field, not necessarily focused on the fundamentals of physical sciences. No pure science research, no STEM designation."
+
+While the above example is focused on nursing, this is applicable to all the applied health professions. The idea expressed here is that, currently socially understood, STEM is more based on the studying the foundations of the sciences for the innovation of improved science, technology, engineering, and mathematics. In essence, it is more *"things"* oriented rather than *"people"* oriented. While it is true that the medical professions do use many STEM tools to apply the subjects to better the lives of those within their careers, it must be emphasized that STEM is simply all that it is to these professions, a tool. From the [ASDA](https://www.asdanet.org/index/dental-student-resources/tips-for-international-dental-students/Dentistry-as-STEM-Degree) (The American Student Dental Association), the Federal Government still does not consider dentistry to be part of STEM while the Labor Bureau considers nursing to be part of it (unlike the Department of Commerce Economics and Statistics Administration). Even the government entities are split on the terminology.
+
+Many will attempt to convince that the reason for a field such as nursing to not be part of STEM is because of sexism (as it being a primarily female dominated field). However, this brash accusation ignores the very real underlying reasons and concepts that play a bigger role in how society collectively regards what is STEM and what isn't, and why the two genders seem to differ in their preferences from an evolutionary/religious standpoint. As it currently stands, STEM is widely understood to mean hard science research and development with not much social science attached to it (no, psychology and social science aren't exactly a "science", while neuroscience and evolutionary biology are). STEM is designed with innovation in mind and creating or discovering the next big thing; and while doctors and nurses may do their own research to better their craft when time permits, it is not the sole focus of their profession.
+
+The broad categories for STEM, liberal arts, and business, will continue to be debated for years to come. For the purpose of this study, we will be separating the applied health sciences to be in their own separate category.
+
+# {-}
+
+
