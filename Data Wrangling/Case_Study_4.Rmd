@@ -1,0 +1,134 @@
+---
+title: "Case Study 4: Take me out to the ball game"
+author: "Devin W. H."
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:  
+    keep_md: true
+    toc: true
+    toc_float: true
+    code_folding: hide
+    fig_height: 6
+    fig_width: 12
+    fig_align: 'center'
+---
+
+```{r, echo=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+```{r load_libraries, include=FALSE}
+
+library(tidyverse)
+library(Lahman)
+library(priceR)
+library(scales)
+library(ggthemes)
+
+```
+
+```{r include=FALSE}
+
+Salaries <- Salaries %>%
+  mutate(salary = adjust_for_inflation(price = salary, from_date = yearID, country = "US", to_date = 2020))
+
+```
+
+## Background
+
+Utah colleges aren't particularly known for their MLB players or sucess stories in the country. However, if one had to pursue a future in baseball, which college would provide the most opportunity for a career in MLB? Does BYU have the highest MLB success? Using several datasets, I merged many key data factors together in order to get the necessary information needed to answer this question.
+
+## Data Wrangling
+
+The datasets used were People, CollegePlaying, Schools, and Salaries. These provided all the information we needed to answer the question of which Utah college was best for MLB success. Once all the datasets were joined together, I grouped the data by playerID and schoolID so that I could get the top salary from each player and at each university they were at. Duplicates were then removed as they provide no substantial insight. Salaries were also adjusted to 2020 inflation rate.
+
+```{r tidy_data}
+
+# Merging datasets together, narrowing down to Utah colleges
+# Get top salary of each player from each school
+
+data <- People %>%
+  left_join(CollegePlaying, by = 'playerID') %>%
+  left_join(Schools, by = 'schoolID') %>%
+  left_join(Salaries, by = 'playerID') %>%
+  filter(state == 'UT') %>%
+  select('playerID', 'nameGiven', 'schoolID', 'name_full', 'salary') %>%
+  na.omit() %>%
+  group_by(playerID, schoolID) %>%
+  top_n(1, salary) %>%
+  unique()
+
+# We now have all the players from each school with a top salary
+
+```
+
+The next data wrangling code involves getting the average salary from each university and creating a new column where players who played at more than one university were selected to be included in the legend.
+
+```{r, wrangle}
+
+# Vector with names of interest
+name = c('William Mays', 'Christopher Bob')
+
+# New column that has everyone but the duplicate players in a specific category
+data <- data %>%
+  mutate(bob = ifelse(nameGiven %in% name, nameGiven, 'Other'))
+
+data2 <- data %>%
+  group_by(schoolID) %>%
+  mutate(avg_sal = mean(salary)) %>%
+  slice(1) %>%
+  ungroup() %>%
+  select(name_full, avg_sal)
+
+```
+
+## Data Visualization
+
+The first graph below shows individual player salaries from each university. Because two players switched colleges (in no exact order), their key appears in the legend for easier analysis. As evident, BYU has more student data of those getting into MLB while other universities come short. Despite not having as many players, we see that Dixie State College has a relatively successful student in the higher end bracket. The other colleges show very lackluster earnings, showing that they either didn't get very far ahead or it was simply a temporary position.
+
+```{r plot_data}
+
+ggplot(data) +
+  aes(x = salary, y = name_full, color = bob) +
+  geom_point() +
+  scale_x_continuous(labels = dollar_format()) +
+  labs(x = 'Salary', y = 'University', title = 'Salary of Individual Baseball Players at Utah Colleges', subtitle = 'Graph Now in BYU Colors!', color = 'Players') +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5, face = 'bold'),
+        plot.background = element_rect(fill = 'navyblue', color = 'navyblue'),
+        title = element_text(color = 'white', face = 'bold'),
+        axis.text = element_text(color = 'white', face = 'bold'),
+        panel.grid.major = element_line(color = 'lightgray'),
+        panel.grid.minor = element_line(color = 'lightgray'),
+        panel.background = element_rect(fill = 'white'),
+        legend.background = element_rect(fill = 'navyblue'),
+        legend.key = element_rect(fill = 'navyblue'),
+        legend.text = element_text(color = 'white', face = 'bold'))
+
+```
+
+The next graph showcases average salary among MLB players from their originating universities. Players from BYU enjoy higher salaries than their other Utah counterparts. Dixie State nears close but still comes short of a million.
+
+```{r}
+
+ggplot(data2) +
+  aes(x = avg_sal, y = name_full) +
+  geom_col(fill = 'navyblue') +
+  scale_x_continuous(labels = dollar_format()) +
+  labs(x = 'Salary', y = 'University', title = 'Average Salary of Utah College Baseball Players', subtitle = 'Graph Now in BYU Colors!') +
+  theme(plot.title = element_text(hjust = -2.5),
+        plot.subtitle = element_text(hjust = 0.8, face = 'bold'),
+        plot.background = element_rect(fill = 'navyblue', color = 'navyblue'),
+        title = element_text(color = 'white', face = 'bold'),
+        axis.text = element_text(color = 'white', face = 'bold'),
+        panel.grid.major = element_line(color = 'lightgray'),
+        panel.grid.minor = element_line(color = 'lightgray'),
+        panel.background = element_rect(fill = 'white'))
+
+```
+
+## Conclusions
+
+Based on the two graphs, we prove that BYU has better MLB success. However, these results should be tongue in cheek considering it is unknown what would be of the other universities if they had the same amount of students go onto the major leagues. However, it could also just be that the MLB prefers BYU students in the end.

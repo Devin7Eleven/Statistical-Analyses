@@ -1,0 +1,149 @@
+---
+title: "John Wick Profile"
+author: "Devin W. H."
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:  
+    keep_md: true
+    toc: true
+    toc_float: true
+    code_folding: hide
+    fig_height: 6
+    fig_width: 12
+    fig_align: 'center'
+---
+
+```{r, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r load_libraries, include=FALSE}
+
+library(tidyverse)
+library(DT)
+library(ggthemes)
+library(scales)
+
+```
+
+```{r load_data}
+
+jw1 <- read.csv('C:\\Users\\vilia\\Documents\\john_1.csv', na.strings = c('', 'NA'))
+jw2 <- read.csv('C:\\Users\\vilia\\Documents\\john_2.csv', na.strings = c('', 'NA'))
+jw3 <- read.csv('C:\\Users\\vilia\\Documents\\john_3.csv', na.strings = c('', 'NA'))
+
+```
+
+## Background
+
+John Wick is one of the most action-packed, testosterone fueled, series in recent years, akin to Jason Bourne. Featuring Keanu Reeves, the movies boast high intense cinematic firefights that is surely made for great entertainment on a Friday night. The goal of this analysis is to be able to answer which movie has the most action, who died the most, and what was the weapon of choice for each conflict.
+
+## Data Wrangling
+
+```{r tidy_data}
+
+# Add : for official title
+jw2 <- jw2 %>%
+  mutate(Movie = str_replace_all(Movie, 'John Wick Chapter 2', 'John Wick: Chapter 2'))
+
+# Remove â€“ and space from title
+jw3 <- jw3 %>%
+  mutate(Movie = str_replace_all(Movie, 'John Wick: Chapter 3 â€“ Parabellum', 'John Wick: Chapter 3 Parabellum'))
+
+# Single dataframe
+john_wick <- rbind(jw1, jw2, jw3)
+
+```
+
+```{r get_most_action}
+
+# Total kills from each movie and percentage of action
+most_action <- john_wick %>%
+  drop_na() %>%
+  group_by(Movie) %>%
+  count(Who) %>%
+  mutate(Kills = sum(n)) %>% # Summarize to get total kills from each movie
+  ungroup() %>%
+  mutate(All_kills = sum(n)) %>% # Total kills overall by John Wick
+  group_by(Movie) %>%
+  mutate(Percent = round((Kills / All_kills), 2)) %>% # Percentages
+  filter(n > 1)
+
+# For labels
+graph_labels <- most_action %>%
+  group_by(Movie) %>%
+  slice(1)
+
+# Action per Minute
+most_apm <- john_wick %>%
+  group_by(Movie, Minute) %>%
+  mutate(Action = ifelse(!is.na(Kill_ID), TRUE, FALSE)) %>%
+  count(Weapon) %>%
+  mutate(n = ifelse(is.na(Weapon), n == 0, n))
+
+```
+
+## Data Visualization
+
+```{r}
+
+datatable(john_wick, options = list(lengthMenu = c(10, 20, 30)))
+
+```
+
+The bottom graph reveals that John Wick Chapter 2 is responsible for 43% of the action in the trilogy with bodyguards being the basic cannon fodder for Wick. Chapter 3 Parabellum follows at 31% with a little more variety, incorporating ninjas into the mix. Chapter 1 boasts the least amount of kills with only 26% of the total amount with the targets being only members of the Russian mafia. Overall, between the three films, there is a total of 287 kills which is plenty enough to satisfy anyone willing to watch the trilogy.
+
+```{r most_action, fig.width = 8}
+
+ggplot(most_action) +
+  aes(x = Movie, y = n, fill = Who) +
+  geom_col(color = 'black') +
+  geom_label(aes(label = percent(Percent), y = Inf), data = graph_labels, fill = 'white', vjust = 3) +
+  labs(x = 'Movie', y = 'Kill Count', title = 'Total Kills Per Movie of Unlucky Henchmen') +
+  scale_fill_manual(values = c('gray18', 'darkred', 'indianred4', 'azure1', 'gray38', 'gray68')) +
+  theme(plot.background = element_rect(fill = 'black'),
+        axis.text = element_text(color = 'white', face = 'bold'),
+        axis.text.x = element_text(vjust = 5),
+        title = element_text(color = 'red', face = 'bold'),
+        legend.background = element_rect(fill = 'black'),
+        legend.text = element_text(color = 'white'),
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect(fill = 'black'),
+        panel.grid.major.x = element_blank(),
+        panel.grid = element_line(linetype = 'dashed'))
+
+```
+
+The following shows the minutes of each film and the precise moments when action occurs. Between 25 and 50 minutes there is the most downtime. Chapter 2 and 3 share very similar trends with the first sections being more or less calm while the middle and later sections pickup. Chapter 1 has the alternate trend, most action being common place within the middle of the movie.
+
+The handgun is the most popular weapon of choice with assault rifle, shotgun, and smg following close. Lesser known weapons are harder to see besides the mainstays of aresenal.
+
+```{r most_apm}
+
+ggplot(most_apm) +
+  facet_wrap(~ Movie, nrow = 3) +
+  aes(x = Minute, y = n, fill = Weapon) +
+  geom_col() +
+  labs(x = 'Film Minutes', y = 'Weapon Kill Count', title = 'Action Per Minute') +
+  theme_dark() +
+  scale_fill_manual(values = c('indianred4', 'firebrick4', 'firebrick3', 'firebrick2', 'firebrick', 'gray18', 'gray28', 'gray38', 'gray48', 'gray58', 'gray96', 'gray97', 'gray98', 'gray99', 'gray100')) +
+  theme(plot.background = element_rect(fill = 'black'),
+        axis.text = element_text(color = 'white', face = 'bold'),
+        axis.text.x = element_text(vjust = 5),
+        strip.text = element_text(color = 'white'),
+        title = element_text(color = 'red', face = 'bold'),
+        legend.background = element_rect(fill = 'black'),
+        legend.text = element_text(color = 'white'),
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect(fill = 'black'),
+        panel.grid = element_line(linetype = 'dashed'))
+
+```
+
+## Conclusions
+
+Movie with most kills -> John Wick: Chapter 2
+
+Most unlucky henchman -> Bodyguard from Chapter 2
+
+Weapon of choice -> Handgun (across all films)

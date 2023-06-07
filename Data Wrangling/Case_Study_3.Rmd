@@ -1,0 +1,168 @@
+---
+title: "Case Study 3: Combining Heights"
+author: "Devin W. H."
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:  
+    keep_md: true
+    toc: true
+    toc_float: true
+    code_folding: hide
+    fig_height: 6
+    fig_width: 12
+    fig_align: 'center'
+---
+
+```{r, echo=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+```{r load_libraries, include=FALSE}
+
+library(tidyverse)
+library(rio)
+library(ggthemes)
+
+```
+
+```{r load_data}
+
+german <- import("https://byuistats.github.io/M335/data/heights/germanconscr.dta")
+bavarian <- import("https://byuistats.github.io/M335/data/heights/germanprison.dta")
+seswgerman <- import("https://byuistats.github.io/M335/data/heights/Heights_south-east.zip")
+bls <- import("https://raw.githubusercontent.com/hadley/r4ds/main/data/heights.csv")
+uow <- import("http://www.ssc.wisc.edu/nsfh/wave3/NSFH3%20Apr%202005%20release/main05022005.sav")
+
+```
+
+## Background
+
+One of the important factors in contributing to human growth is diet and physicality. In modern times, the availability of healthy nutrients has increased dramatically due to innovation in farming and industry. This in turn has also brought less stress on the body which has allowed for increased growth, or at least theoretically. Scientific American argues that humans have been getting taller over the years ([link](https://www.scientificamerican.com/article/why-are-we-getting-taller/)). The following case study takes several data sets from various sources to analyze heights of groups throughout history in hopes of analyzing the reality of the situation.
+
+## Data Wrangling
+
+In order to incorporate all the datasets into one, many measures were taken. The goal is to make sure each dataset has a birth year, height in centimeters, height in inches, and a number indicating which study the dataset was originally belonging. Because the first three datasets involved German male soldiers, the last two datasets were narrowed down to white males much as possible in order to maintain consistency.
+
+Check the code comments to see some of the wrangling procedures undertaken in order to get the datasets together.
+
+```{r tidy_data}
+
+# Explore datasets
+# View(german)
+# View(bavarian)
+# View(seswgerman)
+# View(bls)
+# View(uow)
+
+# Dataset 1
+ger <- german %>%
+  summarise(birth_year = bdec,
+            height_cm = height,
+            height_in = round(height * 0.393701, 2),
+            study = 1)
+
+# Dataset 2
+bav <- bavarian %>%
+  summarise(birth_year = bdec,
+            height_cm = height,
+            height_in = round(height * 0.393701, 2),
+            study = 2)
+
+# Dataset 3
+sger <- seswgerman %>%
+  summarise(birth_year = GEBJ,
+            height_cm = CMETER,
+            height_in = round(CMETER * 0.393701, 2),
+            study = 3)
+
+# Dataset 4
+# Because the three prior datasets delt with German soldiers from the 20th century, filter dataset to white males to make the data seem more harmonized
+bls2 <- bls %>%
+  filter(sex == 'male', race == 'white') %>%
+  summarise(birth_year = 1950,
+            height_cm = round(height * 2.54, 2),
+            height_in = height,
+            study = 4)
+
+# Dataset 5, simplify columns to what we want first since there is a lot
+# No race criteria, simplified it to only males and got rid of abnormalities
+uow_wrangled <- uow %>%
+  filter(RE35 == 1) %>%
+  select(DOBY, RT216F, RT216I) %>%
+  mutate(height_in = (RT216F * 12) + RT216I) # Convert feet to inches and add the inches column
+
+uow2 <- uow_wrangled %>%
+  summarise(birth_year = DOBY + 1900, # Because DOBY is numeric, we can add 1900 to get full year
+            height_cm = round(height_in * 2.54, 2),
+            height_in = height_in,
+            study = 5)
+
+# Combine wrangled datasets together
+dataset <- rbind(ger, bav, sger, bls2, uow2)
+dataset$height_in <- round(dataset$height_in, 2)
+
+```
+
+## Data Visualization
+
+```{r plot_data}
+
+ggplot(dataset) +
+  facet_wrap(~ study) +
+  aes(x = birth_year, y = height_in) +
+  geom_point() +
+  scale_x_continuous(breaks = seq(1700, 2000, 50)) +
+  labs(x = 'Year', y = 'Height (In)', title = 'Heights by Years', subtitle = 'Height in Inches Among German/White Males') +
+  theme_wsj(base_size = 8) +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+
+```
+
+Taking a quick glance at the above graph, Very little information can be interpreted due to the nature of the studies and how the data was recorded. Faceting by study and analyzing individual heights yields no substantial evidence to indicate overall human height has increased over the years. Perhaps combining the data into one uniform dataframe with the average heights would give a more accurate picture.
+
+```{r}
+
+height <- dataset %>%
+  mutate(decade = (birth_year %/% 10) * 10) %>%
+  group_by(decade) %>%
+  mutate(avg_height = mean(height_in))
+
+ggplot(height) +
+  aes(x = decade, y = avg_height) +
+  geom_point() +
+  geom_line() +
+  annotate(xmin = 1770, xmax = 1850, ymin = -Inf, ymax = Inf, 
+           geom = 'rect', fill = "antiquewhite3", color = NA, alpha = .7) +
+  annotate(xmin = 1880, xmax = 1910, ymin = -Inf, ymax = Inf, 
+           geom = 'rect', fill = "antiquewhite3", color = NA, alpha = .7) +
+  scale_x_continuous(breaks = c(seq(1710, 1770, by = 20), 
+                                seq(1840, 1880, by = 20), 
+                                seq(1910, 1970, by = 20))) +
+  geom_text(x = 1810, y = 67.7, label = "No Data", 
+            color = "black", size = 3) +
+  geom_text(x = 1895, y = 67.7, label = "No Data", 
+            color = "black", size = 3) +
+  geom_text(x = 1865, y = 66.5, label = "Study 1 + 2", 
+            color = "black", size = 3) +
+  geom_text(x = 1740, y = 66.5, label = "Study 3", 
+            color = "black", size = 3) +
+  geom_text(x = 1950, y = 66.5, label = "Study 4 + 5", 
+            color = "black", size = 3) +
+  labs(x = 'Decade', y = 'Mean Height in Inches', title = 'Height by Years', subtitle = 'Height in Inches Among German/White Males') +
+  theme_wsj(base_size = 8) +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+
+# %/% ex. 1952 %/% 10 = 195, 195 x 10 = 1950
+# Treat as numeric or string
+
+```
+
+The above graph is easier to look on but the data isn't as uniform. The first three studies originate from Germany of various regions while the last two are from America (where race wasn't an available filter, so had to narrow it down to male only which may skew results). Having datasets in America from two completely different regions (not to mention the diversity of America) won't help paint a convincing argument that overall height is increasing in humans due to logical reasons to doubt based on this graph, but for what it is worth we can see that while height may jump around, they are a bit higher on the lower end than the earliest decades. We can assume overall height is increasing throughout the decades for the most part.
+
+## Conclusions
+
+Based on the bottom most graph, despite some of the erroneous inconsistencies of the datasets, we can believe the claim that overall human height is increasing is valid. It would be interesting to get data of all heights of people throughout several years instead of specific regions.

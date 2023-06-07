@@ -1,0 +1,133 @@
+---
+title: "Case Study 6: It’s about time"
+author: "Devin W. H."
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:  
+    keep_md: true
+    toc: true
+    toc_float: true
+    code_folding: hide
+    fig_height: 6
+    fig_width: 12
+    fig_align: 'center'
+---
+
+```{r, echo=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+```{r load_libraries, include=FALSE}
+
+library(tidyverse)
+library(lubridate)
+library(ggthemes)
+
+```
+
+```{r load_data}
+
+data <- rio::import('https://byuistats.github.io/M335/data/sales.csv')
+
+```
+
+## Background
+
+Record of transactions were obtained from several businesses in various industries. The purpose is to identify which business has performed the best within a three month period for a loan program. No forecasting will be conducted, but only an analysis of current time series on the revenue of several businesses from May to July.
+
+## Data Wrangling
+
+```{r tidy_data}
+
+data <- data %>%
+  mutate(Time = with_tz(Time, tzone = 'America/Denver')) %>%
+  filter(!Name == 'Missing')
+
+```
+
+```{r}
+
+# Provide visualizations that show gross revenue over time for each company (Choose if you want to aggregate at the daily, the weekly, or the monthly level).
+
+sales1 <- data %>%
+  mutate(Month = month(Time, label = TRUE), Year = year(Time)) %>%
+  group_by(Name, Month) %>%
+  summarise(Gross = sum(Amount)) %>%
+  filter(!Month == 'Apr') # Only two instances of April transactions
+
+```
+
+```{r}
+
+# Provide a visualization that gives insight into hours of operation for each company.
+
+sales2 <- data %>%
+  mutate(Hour = hour(Time)) %>%
+  count(Name, Hour)
+
+```
+
+```{r}
+
+# We don’t have employee numbers, but customer traffic (number of transactions) may be helpful. Provide a visualization on customer traffic for each company.
+
+sales3 <- data %>%
+  mutate(rnd_day = floor_date(Time, unit = 'day')) %>%
+  count(Name, rnd_day)
+
+```
+
+## Data Visualization
+
+The following graph shows *gross revenue* for each company monthly. June saw the biggest increase in profits from the previous months with July being slightly more profitable than June for LeBelle.
+
+```{r plot_data}
+
+# Provide visualizations that show gross revenue over time for each company (Choose if you want to aggregate at the daily, the weekly, or the monthly level).
+
+ggplot(sales1) +
+  aes(x = Month, y = Gross, color = Name) +
+  facet_wrap(~Name) +
+  geom_line(aes(group = Name), size = 1.5) +
+  theme_hc() +
+  theme(legend.position = 'None')
+
+```
+
+The graph below finds number of transactions for each store during each hour of the day. Most businesses find the most profitable times to be between 10 and 3 which is expected to be the busiest time frame regardless of industry. It isn't clear what hours the stores open or close since this only gathers transactions.
+
+```{r}
+
+# Provide a visualization that gives insight into hours of operation for each company.
+
+ggplot(sales2) +
+  aes(x = Hour, y = n, fill = Name) +
+  facet_wrap(~ Name) +
+  geom_col() +
+  coord_cartesian(xlim = c(7, 24)) +
+  theme_gdocs() +
+  theme(legend.position = 'None')
+
+```
+
+Down below is daily transactions for customer traffic at each business. Frozone, LeBelle, SplashAndDash, and Tacontento stay mostly similar throughout the months while HotDiggity and Shortstop fluctuate more frequently.
+
+```{r}
+
+# We don’t have employee numbers, but customer traffic (number of transactions) may be helpful. Provide a visualization on customer traffic for each company.
+
+ggplot(sales3) +
+  aes(x = rnd_day, y = n, color = Name) +
+  facet_wrap(~ Name, nrow = 1) +
+  geom_point() +
+  geom_smooth(color = 'black') +
+  theme_calc() +
+  theme(legend.position = 'None')
+
+```
+
+## Conclusions
+
+It is apparent HotDiggity has the best sales of any of the analyzed businesses. However, it should be noted that their business seems to only spike during the summer which may be a risk when it comes to paying back on a loan. LeBelle and SplashandDash have more of a consistent source of income. Cross reference the bottommost graph with the topmost and it can be inferenced that SplashandDash has a good amount of income at a more consistent rate. Were I to give out a loan to expand a business, I would recommend SplashandDash as a good candidate along with LeBelle.

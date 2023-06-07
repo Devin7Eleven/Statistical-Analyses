@@ -1,0 +1,158 @@
+---
+title: "Case Study 5: Extra, extra, code all about it"
+author: "Devin W. H."
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:  
+    keep_md: true
+    toc: true
+    toc_float: true
+    code_folding: hide
+    fig_height: 6
+    fig_width: 12
+    fig_align: 'center'
+---
+
+```{r, echo=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+```{r load_libraries, include=FALSE}
+
+library(tidyverse)
+library(rio)
+library(maps)
+
+```
+
+```{r load_data}
+
+# Import datasets using rio::import
+data <- import("https://storybench.org/reinventingtv/abc7ny.csv")
+data2 <- import("https://storybench.org/reinventingtv/kcra.csv")
+
+dataframe <- rbind(data, data2) %>%
+  select(datetime, headline)
+
+```
+
+## Background
+
+The purpose of this analysis is to conduct an estimate of city rankings via calculating the amount of times a city appears in a news headline (context negligible for the design of this analysis). Top 15 cities are to be of interest and compared among each other followed by a more specific example.
+
+New York for several headlines have been split up into its boroughs. For the purpose of this study, these boroughs will be combined to be part of the greater New York metropolitan area.
+
+## Data Wrangling
+
+Using the us.cities dataset, we can separate the city and state into different columns. From there, we can make a vector of the column of cities and use that to match with the headlines and keep count of their appearance.
+
+```{r tidy_data_1}
+
+# For each headline, identify the name of the city mentioned in the headline (if any)
+
+cities <- us.cities %>%
+  separate(name, into = c('City', 'State'), sep = -3) %>%
+  select(-(State))
+
+NewYorkCity <- c('Bronx', 'Brooklyn', 'Queens', 'Staten Island', 'Manhattan')
+
+cities_vec <- cities$City %>%
+  str_flatten(collapse = '|')
+
+vec <- c(cities_vec, NewYorkCity) %>%
+  str_flatten(collapse = '|')
+
+dataframe <- mutate(dataframe, city_match = str_match(headline, pattern = vec)) %>%
+  filter(city_match != 'NA')
+
+```
+
+```{r}
+
+# Question 1: For the 15 cities with the most mentions overall, create a graphic that summarizes their mentions. Write a paragraph in which you discuss the results. Do they make sense? Do you need to make changes? If something looks wrong, fix your code and run it again to find the new top 15.
+
+dfq1 <- dataframe %>%
+  mutate(city = ifelse(city_match %in% NewYorkCity, 'New York', city_match)) %>%
+  count(city) %>%
+  slice_max(order_by = n, n = 15)
+
+```
+
+```{r}
+
+# Question 2: For those same 15 cities, create a graphic to show the headline count for each city for each month. Write a paragraph to discuss meaningful insights from the graph about headlines over time for certain cities and/or other features and trends you notice in the graph.
+
+dfq2 <- dataframe %>%
+  separate(datetime, 'month', -19) %>%
+  mutate(city = ifelse(city_match %in% NewYorkCity, 'New York', city_match)) %>%
+  group_by(month) %>%
+  count(city) %>%
+  ungroup() %>%
+  slice_max(order_by = n, n = 15)
+
+dfq2$month <- factor(dfq2$month, levels = c("July ", "August ","September ", "October ", "November ", "December ", "January "))
+
+```
+
+```{r}
+
+# Question 3: Create a graphic specifically dedicated to comparing the headlines generated about Houston, TX and Charlotte, NC over time (by month). What trends do you notice?
+
+dfq3 <- dataframe %>%
+  filter(city_match == c('Houston', 'Charlotte')) %>%
+  separate(datetime, 'month', -19) %>%
+  group_by(month) %>%
+  count(city_match)
+
+dfq3$month <- factor(dfq3$month, levels = c("July ", "August ","September ", "October ", "November ", "December ", "January "))
+
+```
+
+## Data Visualization
+
+The graph below shows the top 15 cities for headlines overall within the given year.
+Combining the 5 boroughs into 'New York' places NYC to be the top city in the headlines by a large margin compared to all else. This makes sense considering New York's place of importance as the commercial center in America and it's important cultural significance. These rankings roughly correspond with a city's widespread influence and sometimes notoriety.
+
+```{r plot_data}
+
+ggplot(dfq1) +
+  geom_col(aes(x = fct_rev(fct_reorder(city, n)), y = n), fill = 'firebrick', color = 'black') +
+  labs(x = 'Cities', y = 'Number of Headlines', title = 'Number of Headlines By Top 15 Cities') +
+  scale_y_continuous(breaks = seq(0, 1800, 200)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        plot.title = element_text(hjust = 0.5))
+
+```
+
+When grouped by into months, New York still tops the results compared to other cities but a one time instance of Charlotte and Houston popping up for top headlines in the month of August is curious. In August 2017, Hurricane Harvey hit the coast of Texas and caused destruction, promoting an increase in headlines. At the same time, Charlotte had a political incident which left one person dead and 35 injured. This would also increase to having a massive increase in headlines for this time frame. Las Vegas in October of 2017 had the Vegas shooting (where my cousin and his wife were shot). Unfortunately, majority of these headline spikes revolve around melancholic events.
+
+```{r}
+
+ggplot(dfq2) +
+  geom_col(aes(x = month, y = n, fill = city), position = 'dodge', color = 'black') +
+  labs(x = 'Month', y = 'Number of Headlines', title = 'Number of Headlines By Month From Top 15 Cities', fill = 'City') +
+  scale_y_continuous(breaks = seq(0, 400, 50)) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+These two cities show a spike in August, correlating with the events I specified prior. After August, the news quickly died down.
+
+```{r}
+
+ggplot(dfq3) +
+  geom_line(aes(x = month, y = n, color = city_match, group = city_match), size = 1) +
+  labs(x = 'Month', y = 'Number of Headlines', title = 'Number of Headlines By Month From Houston, TX and Charlotte, NC', color = 'City') +
+  scale_y_continuous(breaks = seq(0, 40, 5)) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+## Conclusion
+
+Based upon trends with headlines, having a higher amount doesn't necessarily mean a higher city ranking when it comes to positive stories and influence. Las Vegas, Houston, and Charlotte came up close for headlines and neither were uplifting (and perhaps the same could be applied to New York, Sacramento, or any other major city).

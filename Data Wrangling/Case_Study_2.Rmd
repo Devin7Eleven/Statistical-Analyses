@@ -1,0 +1,145 @@
+---
+title: "Case Study 2: Reducing Gun Deaths"
+author: "Devin W. Harp"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:  
+    keep_md: true
+    toc: true
+    toc_float: true
+    code_folding: hide
+    fig_height: 6
+    fig_width: 12
+    fig_align: 'center'
+---
+
+```{r, echo=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+```{r load_libraries, include=FALSE}
+
+library(tidyverse)
+library(stringr)
+library(waffle)
+library(ggthemes)
+library(ggrepel)
+
+```
+
+```{r load_data}
+
+data <- read.csv("C:\\Users\\vilia\\Documents\\Data Wrangling\\DS350_WI22_Harp_Devi\\week_05\\guns-data-master\\full_data.csv")
+
+# Homicide - deaths by both assault and legal intervention (primarily shootings by police officers), recipient of
+
+```
+
+## Background
+
+In 2016, [Fivethirtyeight.com](fivethirtyeight.com) conducted a study about gun deaths in the United States. This study included a wide variety of demographic data ranging from age, education level, race, and other factors. Many interesting finds were analyzed and we will be using the raw data to delve again into the findings.
+
+## Data Wrangling
+
+```{r tidy_data}
+
+gundeaths <- data %>%
+  mutate(season = case_when(
+    month %in% c(1, 2, 12) ~ "Winter",
+    month %in% c(3, 4, 5) ~ "Spring",
+    month %in% c(6, 7, 8) ~ "Summer",
+    month %in% c(9, 10, 11) ~ "Autumn"
+    )
+  )
+
+gundeaths$race <- str_replace(gundeaths$race, "Native American/Native Alaskan", "Amerindian")
+gundeaths$race <- str_replace(gundeaths$race, "Asian/Pacific Islander", "Asian/Pacific")
+
+```
+
+```{r graph1}
+
+graph1 <- gundeaths %>%
+  filter(intent == "Suicide") %>%
+  group_by(sex) %>%
+  summarise(count = n()) %>%
+  mutate(percent = round((count/63175) * 100, 2))
+  
+```
+
+```{r graph2}
+
+graph2 <- gundeaths %>%
+  filter(intent == "Homicide", police == 1) %>%
+  group_by(race) %>%
+  mutate(count = n()) %>%
+  select(race, count) %>%
+  distinct() %>%
+  mutate(percent = round((count/1402) * 100, 2))
+
+```
+
+```{r graph3}
+
+graph3 <- gundeaths %>%
+  filter(intent == "Homicide", police == 1) %>%
+  select(race, intent, police, education) %>%
+  group_by(race, education) %>%
+  mutate(count = n()) %>%
+  slice(1) %>%
+  na.omit() %>%
+  select(race, education, count)
+
+```
+
+## Data Visualization
+
+The graph below shows the initial find by Fivethirtyeight, in that the vast majority of suicide victims were male. This reveals major underlying social implications for men and lead further discussion on men's mental health.
+
+```{r plot_graph1}
+
+x <- c("Male" = 86.25, "Female" = 13.75)
+
+waffle(x, rows = 9, colors = c("Lightblue", "Pink"), size = 0.5, title = "86.25% of Suicide Victims Are Male")
+
+```
+
+Forgive for the pie chart below, but displayed is the percentages of races killed by police. As we see, whites are the ones predominantly killed by police followed by blacks, hispanics, and roughly tied between Asian/Islanders and natives. Considering whites are the most numerous in the states, this shouldn't come as a surprise but for blacks and hispanics who come at far lower numbers, it would be of interest to look more into this phenomenon.
+
+```{r plot_graph2}
+
+df2 <- graph2 %>% 
+  mutate(csum = rev(cumsum(rev(percent))), 
+         pos = percent + lead(csum, 1),
+         pos = if_else(is.na(pos), percent, pos))
+
+ggplot(graph2, aes(x = "" , y = percent, fill = fct_inorder(race))) +
+  geom_col(width = 2, color = 1) +
+  coord_polar(theta = "y") +
+  scale_fill_brewer(palette = "Pastel1") +
+  geom_label_repel(data = df2,
+                   aes(y = pos, label = paste0(percent, "%")),
+                   size = 4, nudge_x = 5, show.legend = FALSE) +
+  guides(fill = guide_legend(title = "Race")) +
+  labs(title = "Percentage of Races Killed by Police", subtitle = "Whoever Said Pie Charts Suck Was Probably Right", caption = "Source: Fivethirtyeight.com") +
+  theme_void()
+
+```
+
+Delving more into the police shootings of the various races, a question that can best explain this is the education level of the groups. As education increases among a population, we see crime rates also drop in their respective communities. Poverty is proportional to education level. As we see, the majority of police shootings happen to individuals who have only a high school diploma while those experiencing higher education face less involvement in shootings. Interestingly, whites even with some college education were kileld more than those with less than a high school diploma.
+
+```{r plot_graph3}
+
+ggplot(graph3) +
+  geom_col(aes(x = race, y = count, fill = education), position = "dodge") +
+  labs(x = "Race", y = "Number of Education", title = "Education Level of Those Killed By Police", caption = "Source: Fivethirtyeight.com", fill = "Education") +
+  scale_y_continuous(breaks = seq(0, 400, 50)) +
+  theme_gdocs()
+
+```
+
+## Conclusions
+
+Gun deaths will continue to be a topic of debate in the United States. However, a prominent talking point is that poverty and education levels in communities help in lowering the cause of death by guns. While we don't know the specific examples of what caused the shooting, we can safely assume that education is a prime suspect in being a strong influential factor.

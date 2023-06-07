@@ -1,0 +1,141 @@
+---
+title: "Case Study 7: Scripture study"
+author: "Devin W. H."
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:  
+    keep_md: true
+    toc: true
+    toc_float: true
+    code_folding: hide
+    fig_height: 6
+    fig_width: 12
+    fig_align: 'center'
+---
+
+```{r, echo=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+```{r load_libraries, include=FALSE}
+
+library(tidyverse)
+library(stringr)
+library(ggthemes)
+
+```
+
+```{r load_data}
+
+scriptures <- rio::import("http://scriptures.nephi.org/downloads/lds-scriptures.csv.zip")
+savior_names <- rio::import("https://byuistats.github.io/M335/data/BoM_SaviorNames.rds")
+
+```
+
+## Background
+
+In 1978 Susan Easton Black penned an article in the Ensign titled [Names of Christ in the Book of Mormon](https://www.churchofjesuschrist.org/study/ensign/1978/07/discovery/names-of-christ-in-the-book-of-mormon.html?lang=eng). The purpose of this analysis is to dive deeper into this claim by finding the amount of words between each reference of Christ.
+
+## Data Wrangling
+
+```{r get_BoM_text}
+
+scriptures_bom <- scriptures %>%
+  filter(volume_short_title == 'BoM') %>%
+  group_by(book_short_title) %>%
+  summarise(book_text = str_flatten(scripture_text, collapse = ' ')) %>%
+  mutate(total_words = str_count(book_text, '\\w+'))
+
+```
+
+```{r flatten_names}
+
+names_of_christ <- str_flatten(savior_names$name, collapse = '|')
+
+```
+
+```{r function}
+
+get_words <- function(string, regex) {
+  tib <- tibble(
+    scripture = unlist(str_split(string, regex))
+  ) %>%
+    mutate(words = str_count(scripture, '\\w+'))
+}
+
+```
+
+```{r test_function}
+
+ex <- 'Glue the sheet to the dark blue background'
+
+ex_df <- get_words(ex, 'the|to')
+
+# ex_df
+
+# Achieve results designated within Case Study 7 example
+
+```
+
+```{r get_results}
+
+word_count <- scriptures_bom %>%
+  mutate(num_words = map2(book_text, names_of_christ, get_words)) %>%
+  unnest(num_words) %>%
+  select(c(book_short_title, words, total_words)) %>%
+  group_by(book_short_title) %>%
+  mutate(proportion = sum(words) / total_words)
+
+word_count2 <- word_count %>%
+  group_by(book_short_title) %>%
+  slice(1) %>%
+  select(-c(words, total_words))
+
+```
+
+## Data Visualization
+
+```{r}
+
+chronological <- c('1 Ne.', '2 Ne.', 'Jacob', 'Enos', 'Jarom', 'Omni', 'W of M', 'Mosiah', 'Alma', 'Hel.', '3 Ne.', '4 Ne.', 'Morm.', 'Ether', 'Moro.')
+
+```
+
+This first graph shows a boxplot of the amount of words between each reference of Christ in each book within the Book of Mormon. This graph does not take into consideration the length of the book which can skewer results (a log10 base scale was used to eliminate extreme outliers, particularly in the case of Alma which had around 4000 words between two references of Christ). The median for amount of words for each book are well within the 10 - 100 boundary with Jarom having the highest median. Mormon has the lowest amount of words between each reference, slightly ahead of Moroni. This is interesting as both Mormon and Moroni's books were at the time of their end, and coincidentially have the most references to the Savior.
+
+```{r plot_data_box}
+
+ggplot(word_count) +
+  aes(x = words, y = fct_rev(factor(book_short_title, chronological)), fill = book_short_title) +
+  geom_boxplot() +
+  scale_x_log10() +
+  labs(x = 'Words Between Christ References', y = 'Books Abbr.') +
+  theme_tufte() +
+  theme(legend.position = 'none',
+        panel.grid.major.x = element_line(color = 'lightgray', linetype = 'dashed')) +
+  scale_fill_stata()
+
+```
+
+The second graph takes proportion of the sum of words without references of Christ divided by the total amount of words in each book. For example, while Jarom has the highest percentage for words between, Moroni has the lower percentage which gives roughly 4% of its book being about the Savior specifically. This is a substantial amount and powerful way to end the record of the Nephites.
+
+```{r plot_data_bar}
+
+ggplot(word_count2) +
+  aes(x = proportion, y = fct_rev(factor(book_short_title, chronological)), fill = book_short_title) +
+  geom_col() +
+  scale_x_continuous(breaks = seq(0.90, 1.00, 0.010)) +
+  coord_cartesian(xlim = c(0.90, 1.00)) +
+  labs(x = 'Words Between Christ References', y = 'Books Abbr.') +
+  theme_tufte() +
+  theme(legend.position = 'none',
+        panel.grid.major.x = element_line(color = 'lightgray', linetype = 'dashed')) +
+  scale_fill_stata()
+
+```
+
+## Conclusions
+
+The Book of Mormon makes frequent references to Christ with a median average between each reference around 50. Christ truly is the central figure in the scripture. There exists many outliers but the Book of Mormon has a central message to focus on the Savior which is a crucial thing to remember in this day when so much truth is being lost and sin is promoted in place of.
