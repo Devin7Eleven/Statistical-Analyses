@@ -1,0 +1,140 @@
+---
+title: "Group Project Latin Square"
+author: "Devin, Nathan, Tyler, Stefanie"
+output: StatsBYUI::math325_analysis
+---
+
+```{r load_library, include=FALSE}
+
+library(tidyverse)
+library(mosaic)
+library(car)
+library(DT)
+library(readxl)
+library(pander)
+
+```
+
+```{r load_data, include=FALSE}
+
+data <- read_xlsx("../LS_project.xlsx")
+data$Typer <- as.factor(data$Typer)
+data$Time <- as.factor(data$Time)
+data$Keyboard <- as.factor(data$Keyboard)
+
+```
+
+### Introduction
+
+What makes someone a faster typer? Their inherent skill, or the keyboard do they use? The goal is to see if one's keyboard has any factor in one's words per minute speed.
+
+### Design and Sampling Methods
+
+Using four members of our study group, we took an online typing test of various minutes (one through four) and switched laptop use for each run. We used a Latin Square design for this approach. Since our main focus was to see the effect for keyboard used, we had to block off the typer and time since both could have significant influence.
+
+$y_{ijk} = \mu + \alpha_i + \beta_j + \tau_k + \epsilon_{ijk}$
+
+$y_{ijk}$: observation 
+
+$\mu$: benchmark 
+
+$\alpha_i$: effect of block factor "Typer"
+
+$\beta_j$: effect of block factor "Time"
+      
+$\tau_k$: effect of treatment factor "Keyboard"
+      
+$\epsilon_{ijk}$: error term 
+
+Our hypotheses for this test can also be seen below:
+
+$H_o : \tau_1 = \tau_2 = \tau_3 = \tau_4 = 0$
+
+The effect for keyboard are all equal to 0.
+
+$H_a : \tau_k \ne 0 \text{ for at least one k} \in \text{{1, 2, 3, 4}}$
+
+The effect for keyboard is not 0 for at least one keyboard.
+
+Our level of significance follows the traditional preset.
+
+$$\alpha\text{ = 0.05}$$
+
+### Data Table
+
+Our data table with the full data can be seen below. Four typers, each doing one through four minute typing trials, each round involving a different keyboard for each user, and their calculated words per minute from the test. Total of 16 samples.
+
+```{r echo=FALSE}
+
+datatable(data, options = list(lengthMenu = c(6, 12, 18)))
+
+```
+
+### Numerical and Graphical Summaries
+
+We have three various numerical summaries to describe our data. The first numerical summary depicts WPM being dependent on the keyboard, which is the main factor of interest. The standard deviations for all keyboards is roughly the same. Nathan's keyboard had the lowest WPM while Stefanie's keyboard had the highest. While the lowest minimum WPM is relatively homogeneous but the max values hold various degrees of magnitude.
+
+```{r echo=FALSE}
+
+pander(favstats(WPM ~ Keyboard, data = data))
+
+```
+
+The next numerical focuses on typer. We see a big shift in standard deviation, Devin having a bigger SD than the others suggesting more various WPM. Tyler had the most significant lower WPM which could explain the values we see from the first summary's minimum WPM. Devin had the max WPM describing the highest max value for Stefanie's laptop. Based on these values alone, we can infer that typer has more of an impact than the keyboard itself.
+
+```{r echo=FALSE}
+
+pander(favstats(WPM ~ Typer, data = data))
+
+```
+
+The final summary focuses on the relationship between time and WPM. Again we see that the minimum values can be explained by Tyler's typing speed while the max can be a mixture of many. There is some degree of variability within the standard deviations but not as mcuh as Typer which had nearly double from the highest and lowest values.
+
+```{r echo=FALSE}
+
+pander(favstats(WPM ~ Time, data = data))
+
+```
+
+This graph combines the numerical summaries into one graph. The size of the dots represent the times tested, the colors for the typer, and which keyboard they belong to. Devin had the highest WPM for each laptop but varied as to which time it was applied to. For Devin's keyboard, there are only three points represented but Stefanie's score was at 74 which gets overshadowed by Nathan's data point. The reverse is true for Nathan's. Time values seem randomized with no obvious trend but there is an obvious pattern for typer. Devin has the highest WPM for each keyboard while the Tyler has the lowest. These two extremes can seemingly heavily influence the probability score for our hypothesis.
+
+```{r echo=FALSE, warning=FALSE}
+
+means <- data %>%
+  group_by(Keyboard) %>%
+  summarise(mean = mean(WPM))
+
+ggplot() +
+  geom_point(data = data, aes(x = Keyboard, y = WPM, color = Typer, size = Time)) +
+  geom_point(data = means, aes(x = Keyboard, y = mean), shape = 15, size = 4) +
+  labs(title = 'Relationship Between Keyboard and Words Per Minute', subtitle = 'Black Square Represents Overall Mean For That Keyboard') +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+
+```
+
+### Inferential Statistics
+
+Our ANOVA table below shows the final results for significance. Confirming our prior predictions, typer had the biggest sum of squares and smallest p value. Keyboard and time are nowhere close to the level of influence as typer, from which we can infer based on the graphical summary above. However, because the p value was not significant for our main factor of interest, we cannot reject the null.
+
+```{r echo=FALSE}
+
+AnovaModel.1 <- lm(WPM ~ Keyboard + Typer + Time, data = data)
+pander(Anova(AnovaModel.1))
+
+```
+
+### Checking Assumptions
+
+Before accepting our results, we need to check our assumptions to see if they're satisfied. We are testing for normalcy of the error terms and the constant variance. We see constant variance from the first graph being satisfied. The second graph for normalcy is also satisfied despite a couple outliers skewering the trend by a slight amount.
+
+```{r echo=FALSE}
+
+plot(AnovaModel.1, which = 1:2)
+
+```
+
+### Conclusion
+
+Keyboard isn't a significant factor for having higher words per minute. Typer, our block, is more influential than the main factor of interest. The problems with this study could be that people will be naturally use to their laptops more than others so could have a higher WPM on them. Another factor is that the online test has the same typing prompt for all the trial runs which means a typer can memorize a portion of the phrase and get naturally faster the more they do it.

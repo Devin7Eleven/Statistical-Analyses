@@ -1,0 +1,118 @@
+---
+title: "CB[1] Halo Speedrun"
+author: "Devin W. H."
+output: StatsBYUI::math325_analysis
+---
+
+```{r load_library, include=FALSE}
+
+library(tidyverse)
+library(car)
+library(mosaic)
+library(pander)
+library(DT)
+
+```
+
+```{r load_data, include=FALSE}
+
+data <- read.csv("../Data_CB.csv")
+data$Difficulty <- as.factor(data$Difficulty)
+data$Run <- as.factor(data$Run)
+
+data$Difficulty <- fct_relevel(data$Difficulty, 'Easy', 'Normal', 'Heroic')
+
+```
+
+### Background
+
+Speedrunning is one of the biggest interests in the gaming community, a goal of completing a game as fast as possible to attain a new world record or at the least beating your previous personal best. Speedrunning is an activity that involves intensive dedication revolving around knowing a game engine's flaws for exploitation to skip portions of a level, knowing techniques in how to save time short as milliseconds, and having pixel perfect accuracy to accomplish advanced moves.
+
+I am not a professional speedrunner but will be attempting to speedrun a childhood favorite level of mine called "Outskirts" from Halo 2, one of the best selling games of all time from the early 2000s. It is important to understand that in Halo, each mission plays differently. Some enemies change their level of aggression and the routes they take may vary. Because of this inherent randomness, I know that I will have to block my runs (playthroughs) since they can be a nuisance factor. I will be testing the mean finish time (in minutes) compared to three different difficulties the game offers since difficulty can change how the enemies behave as well (there is a fourth difficulty that I will be avoiding since its Satan incarnate).
+
+<h4 align = 'center'> ![Halo 2, a video game about humanity in a war with a race of genocidal aliens called the Covenant. You play as Master Chief, a supersoldier designed specifically to turn the outcome of the war and save humanity.](../Pictures/halo.jpg) </h4>
+
+### Analysis
+
+$y_{ij} = \mu + \beta_j + \alpha_i + \epsilon_{ij}$
+
+Our experiment follows the above model.
+
+$\mu$ = Sample mean/benchmark
+
+$\beta_j$ = Effect of the run factor
+
+In Halo, the enemy AI programming is rather robust for its age. Enemies can spawn in different locations, use different methods to prevent your progress such as taking strategic positions around the battlefield or throw grenades, have varying levels of aggressiveness (intertwined with the inherent difficulty setting) in the form of accuracy and how often they push towards your location, and chances of rather weird stuff that can happen which may inhibit or accidentally speed up a playthrough (glitches most noticeably considering how old the game is). This amount of randomness each time you play calls for that each run (playthrough) done should be blocked off as we are more interested in difficulty itself and not randomness of the run.
+
+$\alpha_i$ = Effect of the difficulty factor
+
+Easy, normal, and heroic are the three difficulties chosen. Enemies have difference in aggression, accuracy, and damage they deal depending on the difficulty played on. This can hamper run times since I may find myself needing to take cover from enemy fire instead of rushing through. The question is however, how much of a difference this would be compared to the others. I suspect easy and heroic will have the greatest difference.
+
+$\epsilon_{ij}$ = Error term (residuals)
+
+Our hypotheses are thus:
+
+$H_o : \alpha_1 = \alpha_2 = \alpha_3 = 0$
+
+Our null hypothesis is that the affects for difficulty have no difference from each other or 0.
+
+$H_a : \alpha_i \ne 0 \text{ for at least one i} \in \text{{1, 2, 3}}$
+
+Our alternative hypothesis is that for at least one difficulty, its mean is not 0.
+
+Our level of significance follows the traditional 0.05
+
+$\alpha$ = 0.05
+
+The data table below represents the full dataset of 12 samples. The first factor (difficulty) contains three levels (Easy, Normal, Heroic) while the block has runs one through four. Time was recorded in minutes as the full number with seconds being a decimal value.
+
+```{r echo=FALSE}
+
+datatable(data, options = list(lengthMenu = c(4, 8, 12)))
+
+```
+
+The bottom favstats chart shows a closer look at the standard deviation without blocking for the three difficulties. We see easy has the most tight grouping with normal and heroic matching for spread. We also see an obvious upward trend in mean time as difficulty increasing which makes sense in regards to how enemy behavior works the higher you go (see above for reasoning). Heroic sees the highest jump in median and mean though by roughly 3 points while easy and normal are within +-1 of each other for both columns.
+
+```{r echo=FALSE}
+
+pander(favstats(Time_Min ~ Difficulty, data = data)[c('Difficulty', 'min', 'median', 'max', 'mean', 'sd', 'n')])
+
+```
+
+
+The below graph shows individual data points for each factor. There is an obvious pattern that the harder the difficulty, the longer it takes to complete the mission. This is due to needing to seek protection on Heroic in order to not die and have to restart the mission. Normal has two outliers interestingly, both being either very low as to the difficulty of Easy or edging closer to Heroic. This may skewer results later on.
+
+```{r echo=FALSE}
+
+ggplot(data) +
+  aes(x = fct_relevel(Difficulty, 'Easy', 'Normal', 'Heroic'), y = Time_Min) +
+  geom_point(color = 'red', size = 3) +
+  theme_classic() +
+  labs(x = 'Difficulty', y = 'Time in Minutes', title = 'Halo 2 Outskirts Speedrun Time') +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 15),
+        axis.title.x = element_text(vjust = -1),
+        plot.title = element_text(hjust = 0.5, size = 15))
+
+```
+
+Our ANOVA table below showcases the Sum of Squares, Degrees of Freedom, F Value, and probability score for the factor and block. The runs had no major influence and difficulty was the sole significant determinant on mean run time. There is decent amount of variability within difficulty by the 38.35 sum of squares while run only has 1.452. The randomness of each run is not enough to have any impedance on my playthroughs.
+
+```{r echo=FALSE}
+
+CB <- lm(Time_Min ~ Difficulty + Run, data = data)
+pander(Anova(CB))
+
+par(mfrow = c(1,2))
+plot(CB, which = 1:2)
+
+```
+
+Before finalizing our analysis, we need to check for ANOVA assumptions to see if they were satisfied otherwise the results wouldn't be trustworthy. The assumptions needed to be checked are: The distributions have the same variance and the data is independent. We check for the first assumption using our residuals vs fitted plot. Because there seems to be no observable trend (ignoring the red line), we can move onto the QQ Plot which checks for normalcy and independency of the error terms. So long as the values follow along the straight line, it should be well enough.
+
+The residual vs fitted and QQ Plot show that we can support our conclusion. We see two outliers in the QQ Plot which we can expect came from the normal difficulty outliers specified earlier. While concerning, having two outliers shouldn't be enough to deride from our conclusions.
+
+### Interpretation
+
+We accept our alternative hypothesis, that at least one difficulty is not equal to 0. Well, all of them are different from each other and that individual runs do not have big enough of a factor. Heroic had the longest mean run times while easy had the shortest, normal being right in the center between.

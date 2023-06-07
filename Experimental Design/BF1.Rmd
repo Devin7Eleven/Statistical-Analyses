@@ -1,0 +1,172 @@
+---
+title: "Paper Plane Design & Performance"
+author: "Devin W. H."
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: StatsBYUI::math325_analysis
+---
+
+```{r load_library, include=FALSE}
+
+library(tidyverse)
+library(mosaic)
+library(emmeans)
+library(agricolae)
+library(DT)
+library(pander)
+library(car)
+
+```
+
+```{r load_data, echo = FALSE}
+
+airplane <- read.csv("airplane_data.csv", check.names = FALSE)
+
+```
+
+### Introduction
+
+The purpose of this experiment is to conduct an analysis of three various paper airplane designs for Boeing. The hope is to inspire the development of an improved plane model that can exhibit better performance in generating lift and having longer air suspension compared to other models.
+
+A one way ANOVA analysis and comparisons (if initial results are significant) will be conducted to find the better plane model of the three tested options, using a measure of suspension time as our result.
+
+### Methods
+
+For our experiment, many conditions had to be kept the same in order to isolate the condition of interest (air suspension time). For our environment, we used a secluded spot in the I-Center to avoid unwanted draft and to ensure relative temperature consistency (hot air rises and could have some slight influence).
+
+```{r, fig.show='hold', fig.align='center', fig.cap='The first photo is the location within the I-Center where the experiment was conducted followed by the three designed plane models labeled accordingly.', out.width="49%", out.height="20%", echo = FALSE}
+
+knitr::include_graphics(c("../Pictures/pic1.png","../Pictures/pic2.png"))
+
+```
+
+Our experimental content includes the following:
+
+  - Material: Paper airplanes
+  
+  - Condition: Three different paper airplane designs
+  
+  - Response: Air suspension time measured in seconds
+  
+All three paper airplanes were randomized in each trial run for a total of 10 runs for each level of the factor. Two students were involved to gather the data, one to throw at a fixed height and another to record the time of start and end. Because of this, possible human error may be likely in the results by the way of unequal force of throw and delay in start and end time recording. We will be using a basic factorial (1) ANOVA model for this analysis.
+
+Our hypotheses:
+
+$$
+H_o : \alpha_1 = \alpha_2 = \alpha_3 = 0
+\\\text{The effect for all three groups is zero}
+$$
+
+$$
+H_a : \alpha_i \ne 0 \text{ for at least one i} \in \text{{1, 2, 3}}
+\\\text{The effect for at least one group is not equal to zero}
+$$
+
+Our alpha value for this study will be the standard 0.05 significance.
+
+$$
+\alpha = 0.05
+$$
+
+### Data Summaries
+
+Our data was randomized to deter any possible chance error from unforeseen variables. You may see the raw data in the table below.
+
+```{r include=FALSE}
+
+airplane <- airplane %>%
+  rename(Plane = Factor, Suspension = `Seconds in air`)
+
+```
+
+```{r echo=FALSE}
+
+datatable(airplane, options = list())
+
+```
+
+```{r echo=FALSE}
+
+favstats(airplane$Suspension, groups = airplane$Plane) %>%
+  pander()
+
+```
+
+The above table's purpose is to simply give a quick feel for the data and the overall statistics of every data point regardless of level within the one factor we have. We have a fairly small standard deviation, showing not much straying away from the overall mean among the various data points.
+
+Below you will see the individual points for each plane. The red line represents the overall mean with plane C having majority of points above the mean with an outlier below and plane B having all points below the mean and having an outlier above. These outliers could be result of chance error in human testing.
+
+```{r}
+
+mean <- mean(airplane$Suspension)
+
+ggplot(airplane) +
+  aes(x = Plane, y = Suspension) +
+  labs(title = 'Relationship Between Plane Model and Suspension Time', y = 'Suspension in Seconds') +
+  geom_point() +
+  geom_hline(yintercept = 1.324, color = 'red') +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+```{r echo=FALSE}
+
+airplane %>%
+  group_by(Plane) %>%
+  summarise(min = min(Suspension), med = median(Suspension), max = max(Suspension), mean = mean(Suspension), sd = sd(Suspension), n = count(Plane)) %>%
+  pander()
+
+```
+
+The table above gives an individual look into the mean for suspension time in seconds for each airplane as well as standard deviation. We see more spread in B with A having the least, and C between the two but closer to B. As seen, plane B has the lowest mean while plane C has the highest by a pretty decent margin. We can infer that plane C is the better performing based on this alone, but is it really that much for it to be of any interest? Lets perform an ANOVA to see exactly.
+
+### Anova Analysis
+
+The ANOVA analysis is conducted below with the corresponding P value of *0.001549*.
+
+```{r echo=FALSE}
+
+airplane.aov <- aov(Suspension ~ Plane, data = airplane)
+
+pander(airplane.aov)
+
+```
+
+As evident from the conclusion, our P value is significant and allows us to reject the null hypothesis and conclude with our alternative, that at least one of the effects is not equal to zero. In other words, at least one paper airplane has an effect that is unlike the others. But which one exactly? Another set of tests can be done to find out. We will start with a Fisher's LSD comparison.
+
+```{r echo=FALSE}
+
+pairwise.t.test(airplane$Suspension, airplane$Plane, "none")
+
+```
+
+From the Fisher LSD results, we discover that there is no significant difference between plane A and B, but between A & C, and B & C, with the latter being the most significant.
+
+### Test Assumptions
+
+Before we can fully accept our results, it is important to know if the ANOVA assumptions are met
+
+  - Samples of the data are representative of their population
+  
+  - Data is normally distributed in each group
+  
+  - Population variance of each group can be assumed to be the same
+  
+The second and third assumptions are checked below. The first assumption is assumed to be true by the nature of our study.
+
+```{r echo=FALSE}
+
+par(mfrow = c(1, 2))
+plot(airplane.aov, which = 1, pch = 16)
+qqPlot(airplane.aov$residuals, id = FALSE)
+
+```
+
+The graph on the right, the Q-Q plot, shows the data points beside two being in the zone of normal distribution which fulfills the second assumption. We may move forward onto the last assumption.
+
+We see in the residuals vs fitted plot that the variance between each group is roughly the same but the first and last group have outliers which sway the variance slightly. This checks our third assumption and allows us to confidentially accept our ANOVA results.
+
+### Conclusion
+
+We conclude that planes B and C are of interest for having effect sizes that are not equal to our null (which was zero). We see plane C performing significantly better than the rest with plane B being the worst performing (for reference to what planes these are, please see photo from the introduction). These designs should be of interest to Boeing moving forward with designing new plane models to offer better suspension in the air by its own physical properties rather than relying on more engine fuel to keep it in air.

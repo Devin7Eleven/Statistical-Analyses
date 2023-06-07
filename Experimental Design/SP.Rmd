@@ -1,0 +1,180 @@
+---
+title: "Split Plot Music Genre & Style"
+author: "Devin H."
+output: StatsBYUI::math325_analysis
+---
+
+```{r load_library, include=FALSE}
+
+library(tidyverse)
+library(mosaic)
+library(pander)
+library(readxl)
+library(DT)
+library(car)
+
+options(dplyr.summarise.inform = FALSE)
+
+```
+
+```{r load_data, include=FALSE}
+
+data <- read_xlsx('../split_plot.xlsx')
+data$Person <- as.factor(data$Person)
+data$Genre <- as.factor(data$Genre)
+data$Style <- as.factor(data$Style)
+
+```
+
+### Background
+
+Music is one of the greatest studying techniques that students can take advantage of. Studies have shown that calm, quiet classical music can help stimulate the mind to concentrate more and remember information at a better rate than any other genre.
+
+The purpose of this study is to test not necessarily focus for studying purposes but reaction speed which is intertwined with focus. Can music genres have an effect on reaction speed, and what if the song has lyrics or is entirely instrumental? For this design we are doing a split plot design; we are taking 9 people and splitting them into three groups for each genre, where then each person will listen to the same song that has an instrumental and lyrical version. Reaction speed will be measured by using an online reaction speed test which shows participants a blue screen that will turn green. Participants click on the screen soon as it turns green and then takes the average reaction time in milliseconds after a few runs. Participants were also randomized into which genre they got assigned and no participant got assigned to more than one genre.
+
+### Analysis
+
+Our split plot follows this model below:
+
+$y_{ijk} = \mu + \alpha_i + \beta_{j(i)} + \gamma_k + \alpha\gamma_{ik} + \epsilon_{ijk}$
+
+$y_{ijk}$: observation for an individual data point
+
+$\mu$: benchmark (mean)
+
+$\alpha_i$: effect of music genre factor
+
+Our three music genres are rock, rap, and country. For each genre, one song was used that had both a lyrical and no lyrical version (instrumental):
+
+Rock - Even Flow by Pearl Jam
+
+Rap - Heartless by Kanye West
+
+Country - Ring of Fire by Johnny Cash
+
+$\beta_j$: effect of block
+
+Our block for this study are individual people. Three people were in one genre for a total of 9 blocks.
+
+$\gamma_k$: effect of musical style factor
+
+For style, we did lyrics or instrumental. Each person within the same genre got both versions of the song within their genre and had their average reaction speed recorded.
+      
+$\alpha\gamma_{ik}$: the interaction between music genre and musical style
+
+$\epsilon_{ijk}$: error term 
+
+With this model in mind, we can create these hypotheses:
+
+$H_o : \alpha_1 = \alpha_2 = \alpha_3 = 0$
+
+The effect for music genre for all levels is equal to 0.
+
+$H_a : \alpha_i \ne 0 \text{ for at least one i} \in \text{{1, 2, 3}}$
+
+The effect for music genre for at least one of the levels is not equal to 0.
+
+$H_o : \gamma_1 = \gamma_2 = 0$
+
+The effect for musical style for all levels is equal to 0.
+
+$H_a : \gamma_k \ne 0 \text{ for at least one k} \in \text{{1, 2}}$
+
+The effect for at least one of the levels for musical style is not equal to 0.
+
+$H_o : \text{The effect of music genre is the same across all levels of musical style}$
+
+$H_a : \text{The effect of music genre is not the same across all levels of musical style}$
+
+The last two hypotheses are self explanatory.
+
+Our level of significance is as always as follows:
+
+$$\alpha\text{ = 0.05}$$
+
+Our first numerical summary takes a look at genre and it's effect on reaction speed. There is a significant difference between the standard deviations, country having the lowest but rock having the highest. A possible theory for this is because while country is generally regarded as calming and peaceful, rock can have different reactions either getting someone's senses worked up or for someone who listens to it on the daily it can be treated as background noise. Country is tightly clustered to the lower end of the spectrum on its own but rock ties for rap in the first quartile.
+
+```{r echo=FALSE}
+
+pander(favstats(Time_MS ~ Genre, data = data))
+
+```
+
+The next numerical summary focuses on the style of music, instrumental or lyrical. We don't see much of a significant difference between the standard deviations or values by the naked eye. Instrumental has a higher standard deviation by a value of 10 compared to lyrical which also goes with the minimum difference roughly. The max values are interesting as instrumental has a higher reaction time (slower in this context) than lyrical which goes against common assumptions.
+
+```{r echo=FALSE}
+
+pander(favstats(Time_MS ~ Style, data = data))
+
+```
+
+Out of curiosity, let us check our blocking for person and see if that would have any major effect on our results. As we can see, there is massive variation in the data, with the standard deviation reaching as high as 50.2 but low as 1.414. We also see major differences in the minimum and maximum values, suggesting that there is good reason to suspect that the blocking plays a role in the actual outcome.
+
+```{r echo=FALSE}
+
+pander(favstats(Time_MS ~ Person, data = data))
+
+```
+
+The below graph is a visual summary of the data, more specifically the mean reaction time for each genre and their respective musical styles represented by the dots. The horizontal dashed line across the graph represents the overall mean. Instrumental rock had the slowest reaction time while country with lyrics had the fastest. Strangely, this goes against common assumptions halfway. While it makes sense rock would have the slowest reaction time since the loud sound can ruin focus, it is curious to see why lyrical has the fastest mean reaction time aside from in rap.
+
+```{r echo=FALSE}
+
+means <- data %>%
+  group_by(Genre, Style) %>%
+  summarise(mean = mean(Time_MS))
+
+ggplot(means) +
+  aes(x = Genre, y = mean, color = Style) +
+  geom_point(size = 4) +
+  geom_hline(yintercept = 304, linetype = 'dashed') +
+  labs(y = 'Time in Milliseconds', title = 'Music Genre and Style Influence on Reaction Speed') +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16),
+        axis.title = element_text(size = 16))
+
+```
+
+Here down below is our Split Plot ANOVA results depicting the probability scores for our factors. As evident, there is no significant result that allows for a rejection of our null hypothesis. As such as we accept that there is no difference between the effects of either music genre, musical style, and that the effect is the same across all levels for each factor.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+my_aov <- aov(Time_MS ~ Genre * Style + Error(Person), 
+              contrasts = list(Genre = contr.sum, Person = contr.sum, 
+                                   Style = contr.sum), data = data)
+
+summary(my_aov)
+
+```
+
+Before moving onto our final conclusion, let's check the assumptions for constant variance and normalcy of the error terms. We see some bending of the line in the QQ plot but not enough drastic outliers to warrant a rejection. However, we can see what appears to be a megaphone for the residuals vs fitted plot, breaking our assumption for constant variance.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+my_aov2 <- aov(Time_MS ~ Genre * Style, 
+              contrasts = list(Genre = contr.sum, Person = contr.sum, 
+                                   Style = contr.sum), data = data)
+
+par(mfrow = c(1,2))
+plot(my_aov2, which = 1:2)
+
+```
+
+Since we see a megaphone pattern for constant variance, we can try a log transformation of our y value to see if this would fix any issue that we have.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+my_aov3 <- aov(log10(Time_MS) ~ Genre * Style, 
+              contrasts = list(Genre = contr.sum, Person = contr.sum, 
+                                   Style = contr.sum), data = data)
+
+par(mfrow = c(1,2))
+plot(my_aov3, which = 1:2)
+
+```
+
+Doing a log transformation did not fix our issue, leading to a conclusion that the data is inherently violating our constant variance assumption.
+
+### Interpretation
+
+With the assumption for constant variance violated, it would be difficult to accept the conclusion of our experiment coupled with the low P values. However, there is a possibility that our results can still be correct since the assumptions influence probability scoring. We more data that can help balance out the megaphone pattern and better experimental procedures (making sure participants know you can simply tap on the laptop track pad to 'click') then we might see a significant change.

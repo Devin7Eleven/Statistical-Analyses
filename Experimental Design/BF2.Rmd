@@ -1,0 +1,171 @@
+---
+title: "Paper Airplanes Experiment II"
+author: "Devin W. H."
+output: 
+  html_document:
+    css: background.css
+---
+
+```{r load_library, include=FALSE}
+
+library(tidyverse)
+library(mosaic)
+library(emmeans)
+library(agricolae)
+library(DT)
+library(pander)
+library(car)
+library(ggthemes)
+
+# Suppresses summarise() has has grouped output by plane statement from numerical summary
+options(dplyr.summarise.inform = FALSE)
+
+```
+
+```{r load_data, include=FALSE}
+
+airplane <- read.csv("airplane.csv")
+
+airplane$Plane <- as.factor(airplane$Plane)
+airplane$PaperType <- as.factor(airplane$PaperType)
+airplane$PaperType <- str_replace(airplane$PaperType, 'Cardboard', 'Construction')
+
+```
+
+### Introduction
+
+Previously, a basic factorial design was used to test the suspension (in seconds) for three different models of paper airplanes. Building off on the previous design, this experiment introduces a new factor (paper type) in order to test the air suspension time for the paper airplane models and their form. This experimental design shall be a Basic Two Factorial design which utilizes two factors and a test of their interaction in order to determine any significant differences in effects on the mean.
+
+### Methods
+
+The methodology in carrying out the experiment is similar in the past. The testing procedure was conducted at home, environment being a home apartment with fans and AC unit turned off as to remove chance of air draft skewering the results. Three paper airplane models used were inspired from real military aircraft, namely: F15C Eagle, FB-22 Raptor, and A10 Warthog (as seen in the background image). Two paper types were also used in the making of these designs (construction and notebook paper), making two versions for each plane type.
+
+```{r, fig.show='hold', fig.align='center', fig.cap='The figure above shows the three models and the paper type.', out.width="70%", out.height="40%", echo = FALSE}
+
+knitr::include_graphics(c("../Pictures/planes.jpg"))
+
+```
+
+Our experimental content includes the following:
+
+  - Material: Paper airplanes
+  
+  - Condition: Three different paper airplane designs, two paper types
+  
+  - Response: Air suspension time measured in seconds
+  
+All trial runs were randomized for a total of 48 data points from two factors (1F = 3 levels, 2F = 2 levels) and 8 sample size for each possible combination.
+
+Possible chance errors in this design stem from human error. Two people were involved, with one tasked to throw the airplane and another to record the time of throw to the moment it hits the ground. Possibilities for irregularities in the data may result from: Inconsistency in how the airplane was thrown and timing of stopwatch, damage to the paper after each throw, defects in the folding of the paper models, and size of paper. The notebook paper was slightly smaller than the construction paper, meaning the weight change was not to scale with the paper type exactly and may sway the results away from the true mean.
+
+Our hypotheses:
+
+$$H_o : \alpha_1 = \alpha_2 = \alpha_3 = 0$$
+$$\text{Translation: The Effect For Plane 1 = Effect For Plane 2 = Effect For Plane 3 = 0}$$
+$$H_a : \alpha_i \ne 0 \text{ for at least one i} \in \text{{1, 2, 3}}$$
+$$\text{Translation: The effect for the levels of planes is not equal to 0 for at least one plane}$$
+$$H_o : \beta_1 = \beta_2 = 0$$
+$$\text{The Effect For Construction Paper = Effect For Notebook Paper = 0}$$
+$$H_a : \beta_ j\ne 0 \text{ for at least one j} \in \text{{1, 2}}$$
+$$\text{The effect for at least one paper material type is not equal to 0}$$
+$$H_o : \text{The effect of plane type is the same across all levels of paper material}$$
+
+$$H_a : \text{The effect of plane type is not the same across all levels of paper material}$$
+
+Our alpha value for this study will be the standard 0.05 significance.
+
+$$
+\alpha = 0.05
+$$
+
+### Data Summaries
+
+The complete dataset below gives all individual data for each plane, paper type, and their suspension in the air in seconds.
+
+```{r echo=FALSE}
+
+datatable(airplane, options = list())
+
+```
+
+Below represents the Five Point Summary and overall mean, standard deviation, as well as sample size for the dataset. Our standard deviation is quite low, signifying the data values are tightly clustered, or cloes to the mean. There is also only a second difference from the minimum value and maximum.
+
+```{r echo=FALSE}
+
+favstats(airplane$Suspension, groups = airplane$Plane) %>%
+  pander()
+
+```
+
+To get a better feel for the data however, a visualization is a better fit than arbitrary numbers without context. The FB-22 cardboard has the highest maximum value with also having the lowest in the notebook form. If we are considering actual plane dynamics, the A10 should be able to stay in the air longer due to the design of needing an air current to support its own weight while the F15 and FB-22 were designed to move fast via jet fuel rather than rely on form alone. Noticeably, the notebook make for the A10 and F15 stayed in the air longer than their construction paper counterparts while the FB-22 was completely opposite. Notebook paper is considerably thinner which allows for tighter packing while construction makes it hard to do fine folding.
+
+Note: Individual graphs depicting the results for each factor individually was disregarded since the interaction is the most important relationship here. Individual results can be estimated from the interaction chart by looking at their respective axes mark for those curious on individual performance.
+
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+means <- airplane %>%
+  group_by(Plane, PaperType) %>%
+  summarise(mean = mean(Suspension))
+
+p <- ggplot() +
+  geom_point(data = airplane, aes(x = Plane, y = Suspension, color = PaperType), size = 2) +
+  geom_line(data = means, aes(x = Plane, y = mean, group = PaperType, color = PaperType), size = 1) +
+  labs(y = 'Suspension in Seconds', x = 'Plane Model', color = 'Paper Type', title = 'Interaction Between Plane Model and Paper Type') +
+  theme_tufte() +
+  theme(panel.background = element_rect(fill='transparent'),
+    plot.background = element_rect(fill='transparent', color=NA),
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.background = element_rect(fill='transparent'),
+    legend.box.background = element_rect(fill='transparent')
+  )
+
+ggsave('myplot.png', p, bg = 'transparent')
+
+```
+
+![](myplot.png)
+
+The table below gives an individual look into both plane types and paper type. The FB-22 had the highest maximum aloft time when made with construction paper while similarly, the notebook version had the minimal. Interestingly, the construction FB-22 also had the highest standard deviation. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+airplane %>%
+  group_by(Plane, PaperType) %>%
+  summarise(min = min(Suspension), med = median(Suspension), max = max(Suspension), mean = mean(Suspension), sd = sd(Suspension), n = n()) %>%
+  pander()
+
+options(dplyr.summarise.inform = FALSE)
+
+```
+
+### ANOVA Analysis
+
+```{r echo=FALSE}
+
+airplane.aov <- aov(Suspension ~ Plane*PaperType, data = airplane)
+
+pander(airplane.aov)
+
+```
+
+The ANOVA analysis results show findings of interest. Our P value for the interaction factor was **2.615e-08** which results in a rejection of the null (*The effect of Factor 1 is not the same across all levels of Factor 2*). There is heavy interaction between the plane models and the paper type, which could've also been inferred based on an observation of the above plot. The plane models themselves do not have any significant effect on the mean.
+
+### Test Assumptions
+
+To determine if our ANOVA is appropriate, some assumptions have to be met. Using the two graphs below, we check first the Residuals vs Fitted graph to if constant variance is met between the data points. We do not see any megaphoning aside from an outlier at the middle set. This completes the first assumption and allows us to proceed onward to the second. The QQ Plot makes sure that normalcy is retained among each individual data point. We see strange shapeshifting on the right and a couple outliers at the bottom, but nothing serious to say our ANOVA cannot be trusted.
+
+```{r eval=FALSE, include=FALSE}
+
+par(mfrow = c(1, 2), bg = 'transparent')
+plot(airplane.aov, which = 1, pch = 16)
+qqPlot(airplane.aov$residuals, id = FALSE)
+
+```
+
+![](mytestplot.png)
+
+### Conclusion
+
+We see that there is heavy interaction between notebook and construction paper as well as plane model, most noticeably the FB-22 being the more obvious catalyst in this conclusion. The A10 and F15C demonstrated more continuous results while the FB-22 flipped those around entirely. The reason for this could possibly be due to craftsmanship or general physics of the design itself with the material used. For construction paper, the FB22 design is the best performing and would be a recommended style when utilizing this material while the A10 and F15 model benefit most from using notebook paper compared to construction.
