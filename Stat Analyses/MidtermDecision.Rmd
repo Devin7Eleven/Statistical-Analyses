@@ -1,0 +1,99 @@
+---
+title: "Midterm Decision"
+author: "Devin Harp"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document:
+    theme: cerulean
+    code_folding: hide
+---
+
+```{r load_library, include=FALSE}
+# Use this R-Chunk to load your libraries!
+library(mosaic)
+library(tidyverse)
+library(pander)
+library(ggthemes)
+
+```
+
+```{r load_data, include=FALSE}
+# Use this R-Chunk to load your datasets!
+bob <- read.csv('../../Data/Math425PastGrades.csv', stringsAsFactors = TRUE, header = TRUE)
+
+bob$MagicTwoGroups[bob$MagicTwoGroups == 1] <- 0
+bob$MagicTwoGroups[bob$MagicTwoGroups == 2] <- 1
+
+```
+
+### Background
+
+The goal of this analysis is to see where I would most likely be placed grade-wise at the end of the semester based on my midterm score. The results of this analysis will be used to know whether or not it is a good idea to keep or discard my midterm score as a part of my overall grade.
+
+### Analysis
+
+In an effort to find a factor that showed up as significant in the hypothesis testing, I came to learn that one's final score isn't largely influenced by one's attendance in office hours, skill quizzes, or the like. There is however what seems to be this particular group of people whom Brother Saunders feels that they will succeed based on his intuition alone. This group is the 'Magic Group'. The presence of the magic group has proven to be a major influence in the determination of one's final score (shown below) which will be utilized for our linear regression model. To stress this reality, we can examine this pairs plot and color the dots by the magic group.
+
+```{r message=FALSE, warning=FALSE, fig.height = 10, fig.width = 10}
+
+pairs(bob, col = as.factor(bob$MagicTwoGroups), pch = 16, cex = 0.5)
+
+```
+
+Very hard to see but when you look at the various variables, the strongest trend is seen between final exam on the Y axis and Math.425.Midterm score with there being two clear separated trends within the relationship. This was a clear route to take.
+
+The mathematical model for the regression is represented as thus:
+
+$$
+\underbrace{Y_i}_{\text{Final Exam}} = \beta_0 + \beta_1 \underbrace{X_{i1}}_{\text{Midterm Score}} + \beta_2 \underbrace{X_{i2}}_{\text{Magic Two Groups}} + \epsilon_i
+$$
+
+where final exam score is dependent on the midterm score adjusting our slope and the introduction of the binary 'Magic Two Groups' adjusting Y-intercept position from the first line made. This is a two lines model with the removal of a slope interaction term as it was found not significant in the prediction of scores. This will be easier seen in the graph below.
+
+```{r}
+
+# MagicTwoGroups has one NA value
+
+mylm <- lm(Final.Exam ~ Math.425.Midterm + MagicTwoGroups, data = bob)
+b <- coef(mylm)
+pander(summary(mylm))
+
+pred <- predict(mylm, data.frame(Math.425.Midterm = 89, MagicTwoGroups = 1), interval = 'prediction')
+
+```
+
+Before the addition of the magic group, our $R^2$ was only 0.3092. The inclusion of this mysterious group is the massive improvement in our $R^2$, jumping from 0.3092 to 0.8027. Very powerful indeed, but I wondered what the magical group would be comprised of. So I decided to use the only other variable I figured could have an impact on one's membership. While not part of the model since it wasn't significant with the magic two groups factor (as it did the majority of the explaining), I included gender as a consideration in the graph.
+
+```{r message=FALSE, warning=FALSE}
+
+ggplot(bob, aes(x = Math.425.Midterm, y = Final.Exam, color = as.factor(MagicTwoGroups), shape = Gender)) +
+  stat_function(fun = function(x, x2 = 0) b[1] + b[2]*x + b[3]*x2, color = 'red', size = 1, linetype = 'solid') +
+  stat_function(fun = function(x, x2 = 1) b[1] + b[2]*x + b[3]*x2, color = 'skyblue', size = 1, linetype = 'solid') +
+  geom_segment(x = 0, xend = 100, y = pred[1], yend = pred[1], size = 1, color = 'black', linetype = 'dotted') +
+  geom_segment(x = 89, xend = 89, y = pred[2], yend = pred[3], alpha = 0.015, lwd = 2, color = '#00BFC4') +
+  geom_point(size = 2) +
+  geom_point(x = 89, y = 83.05603, color = '#00BFC4', size = 3) +
+  scale_x_continuous(breaks = seq(0, 100, 10)) +
+  scale_color_discrete(name = 'Magic Two Groups', labels = c('Not Magical', 'Magical'), na.translate = F) +
+  annotate('text', x = 50, y = 87, label = 'Predicted Final Exam Score = 83') +
+  labs(x = 'Midterm Score', y = 'Final Exam Score', title = 'Predicting Final Exam Score Using Midterm Score and Two Groups', caption = 'Magic Two Groups are those who Bro Saunders thinks will do well or not based on intuition') +
+  theme_tufte() +
+  theme(legend.position = 'top',
+        plot.title = element_text(hjust = 0.5),
+        plot.caption = element_text(face = 'italic'))
+
+```
+
+The stereotype is that men are typically better at math than women (from what I heard and observed growing up), which is in line with the evolutionary psychological phenomena where men tend to be more rational minded while women seek more emotional and social skills. From this graph alone, the conclusions can be interesting. The magical group has majority men in their membership with women receiving lower final exam scores. This isn't to say they can't still do well as my point overlaps with a women specifically at a predicted fitted score of 83. For the non magical group, you can find a cluster of women receiving high midterm scores but not scoring high on the final.
+
+The nature of higher level math classes is that you will find majority of men in them so the probability of men scoring higher than women is tiled in their favor. Regardless, it is proven women can still be part of the magical group but I find the results interesting from a purely evolutionary behavioral standpoint. In all, **since gender is not significant no meaningful conclusion can come from any of this interpretation on its own**.
+
+### Interpretation
+
+My expected score lies within this range.
+
+```{r}
+pander(pred)
+```
+
+My prediction interval lies between a lower score of 66.53 with an upper possibility of 99.59. If the final exam will be worth 70% and the mid term 30% for consideration of the final grade evaluation, I would be averaging close to a mid to high B grade for the two. If I got rid of the midterm, I would be expected in a lower B score. In this case, it would be wiser to keep my midterm since a 89 is a great score in of itself and would help offset any potential lower final score I may possibly get (which is more likely since the final will be harder than the midterm).

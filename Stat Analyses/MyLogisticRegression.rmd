@@ -1,0 +1,118 @@
+---
+title: "Breast Cancer Survival and Axillaries"
+output: 
+  html_document:
+    theme: cerulean
+    code_folding: hide
+---
+
+<!-- Find some data of interest to you that can be analyzed with a logistic regression. Complete your Logistic Regression Analysis using this file. 
+
+Hint, run the command 
+
+> data() 
+
+in your Console to see available datasets in R that you could use for this Analysis. You are also welcome to collect data yourself, or find other available datasets online for this Analysis. Just be careful to not use anyone else's "analysis" for this Analysis. Also, no conducting surveys unless you have IRB approval to do so. -->
+
+```{r, include=FALSE}
+library(mosaic)
+library(ResourceSelection)
+library(DT)
+library(tidyverse)
+library(car)
+library(pander)
+
+cancer <- read.csv("../../Data/cancer.csv")
+
+```
+
+**The following dataset is modeled after Garrett Saunder's *Logistic Regression* analyses within the Math 325 Notebook**, [Logistic Regression](file:///C:/Users/vilia/Documents/Statistics-Notebook-master/Statistics-Notebook-master/LogisticRegression.html)
+
+### Background
+
+*This dataset was obtained from the University of California Irvine's Machine Learning Repository* --> [link](https://archive.ics.uci.edu/ml/datasets/Haberman%27s%2BSurvival)
+
+Breast Cancer is a common form of cancer mainly afflicting females with lethal potentiality. [Breastcancer.org](https://www.breastcancer.org/symptoms/understand_bc/statistics#:~:text=About%201%20in%208%20U.S.,(in%20situ)%20breast%20cancer.) has predicted for 2021 alone that **281,550** new cases are expected to be diagnosed in women in the U.S. This roughly translates to 1 in 8 women, or 13%, of their populace. Breast cancer is also the most lethal form of cancer for women as prostate cancer is for men. Due to the serious danger this can present to women, numerous clinical studies have been conducted to better understand the nature of breast cancer and possible treatments.
+
+The post world war eras has brought several medical advances such as chemotherapy (after usage of chemical/gaseous weapons during WWI), antibiotics (WWII), heart and organ replacement surgery, and much more. Greater knowledge of the human body was necessary to gather as to develop and maintain a better fighting force. Since 1945, "there have been massive strides in the treatment of cancer. The use of a combination of drugs, radiotherapy and surgery have greatly increased a cancer patient’s chances of survival." (Trueman, "Medical Changes From 1945", [link](https://www.historylearningsite.co.uk/a-history-of-medicine/medical-changes-from-1945/))
+
+The purpose of this analysis is to see if advances in cancer research as a whole has benefited breast cancer survival as the condition spreads. Below is a dataset obtained from the Chicago Billings Hospital with a sample of patients from the years 1958 to 1970 who were treated for breast cancer.
+
+### The Data
+
+Below is a dataset obtained from the Chicago Billings Hospital. For Survival status, a "0" means the patient did not survive 5 years past the surgery performed while a "1" signifies the patient did survive for 5 years or more post surgery.
+
+Positive axillary nodes is medical terminology. A [lymph] node is tissue underneath the armpit which is connected to the breast. A positive axillary node means the breast cancer has spread from the original tumor to underneath the armpit which can then easily spread across the entire body. The act of moving from a node to the rest of the body is called *metastasizing*. 90% of breast cancer deaths are due to metastasizes.
+
+```{r}
+datatable(cancer, options = list(lengthMenu = c(10, 20, 30)))
+```
+
+### Model & Hypothesis
+
+This analysis will use a logistic regression model to determine the probability of survival as positive [lymph] axillary nodes increase. The equation is defined by $Y_i = 1| x_i$ which translates to the probability of survival (SurvivalStatus == 1) being 1 is given by observed value of X (number of positive axillary nodes). This part is simplified by $\pi_i$. The inner part of the equation is related to *"odds"*. More precisely, the odds being divded by 1 plus the odds (the odds being $e^{\beta_0 + \beta_1 x_i}$).
+
+Our hypothesis is in regards to the slope, $\beta_1$. When it is 0, we should see a flat line meaning probability does not change when given X, or rather, the probability of survival 5 years or later post surgery is the same no matter the number of nodes. If it is not 0, the probability will change depending on the number of nodes, either an increase or decrease.
+
+$$
+  P(Y_i = 1|x_i) = \frac{e^{\beta_0+\beta_1 x_i}}{1+e^{\beta_0 + \beta_1 x_i}} = \pi_i
+$$
+$$
+  H_0: \beta_1 = 0 \\
+  H_a: \beta_1 \neq 0
+$$
+
+### Logistic Test Exploration
+
+Using the data, we obtain the results using the logistic regression code.
+
+```{r}
+cancer.glm <- glm((SurvivalStatus == 1) ~ PositiveAxillaryNodes, data = cancer, family = binomial)
+summary(cancer.glm) %>%
+  pander(caption = "Logistic Expression for Analysis")
+```
+
+The numbers above can be substituted for $\beta_0$ and $\beta_1$. $\beta_0$ is our y intercept from **(Intercept)** and $\beta_1$ is our slope obtained from **PositiveAxillaryNodes**.
+
+$$
+  P(Y_i = 1|x_i) \approx \frac{e^{1.412 - 0.0577 x_i}}{1+e^{1.412 - 0.08577 x_i}} = \hat{\pi}_i
+$$
+
+Lastly, our p value for slope is ***p = 1.15E-5***, concluding that $\beta_1 \neq 0$. We reject the null and conclude probability has a decreasing survival rate as the number of positive axillary nodes increases.
+
+### Data Visualization
+
+We see that the initial survival probability with 0 nodes is around 80%. As cancer spreads throughout the connecting tissue underneath the armpit, the number of breast cancer positive nodes increases and survival greatly declines.
+
+```{r}
+plot((SurvivalStatus == 1) ~ PositiveAxillaryNodes, data = cancer, 
+     xlab = "Number of Positive Axillary Nodes (Spreadance of Cancer to Lymph Nodes)", 
+     ylab = "Chance of Survival Past 5 Years After Operation", 
+     main = "Logistic Regression For Breast Cancer Survival Rate \n 1958 - 1970 Chicago Billings Hospital", 
+     col.lab = "firebrick", col.main = "hotpink")
+curve(exp(1.412 - 0.08577*x)/(1 + exp(1.412 - 0.08577*x)), add = TRUE)
+```
+
+
+### Diagnostics and Test Compatibility
+
+Not all logistic regressions are a good fit for data analysis. Depending on how many X values are repeated, we have the choice of two methods to determine albeit only one is used frequently, the *Hoslem Test*.
+
+For this test, the null is that our logistic regression is compatible for the data while the alternative is that our current graph is not appropriate. With ***p = 0.4908***, we can safely conclude our logistic regression is proper fit.
+
+```{r}
+hoslem.test(cancer.glm$y, cancer.glm$fitted, g = 10) %>%
+  pander(caption = "Hoselm Test For Logistic Regression")
+```
+
+### Conclusion
+
+When positive [lymph] axillary nodes is at 0, we have an odds of survival of **4.104156**, or just **4** (calculated by $e^{1.412} \approx 4.104156$). This means we have a 4 to 1 chance of survival which is still fairly concerning as it roughly translates to 80% to live. For every 5 people diagnosed with breast cancer, one person is likely to be guaranteed death. That is definitely not something anyone would wish to hear! As for every increase in nodes also, we see that the odds of survival decrease by 0.92, which is essentially 8%.
+
+If we wish to know the probability of survival when a patient obtains 15 positive breast cancer nodes, we can use the equation below.
+
+$$
+  P(Y_i = 1|x_i) \approx \frac{e^{1.412 - 0.08577\cdot 15}}{1+e^{1.412 - 0.08577 \cdot 15}} = \hat{\pi}_i
+$$
+
+Chance of survival gets placed down to $\approx 0.53%$. It is safe to say it is far better to get rid of the cancer as soon as possible than let it grow out of control into the rest of the body, for your chance of survival diminishes quickly (even at the start you have a 20% chance of death within 5 years). It would be interesting to know what the survival rate for patients with breast cancer was before the introduction of chemotherapy and other medical advances described above so we could compare.

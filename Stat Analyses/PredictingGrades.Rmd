@@ -1,0 +1,148 @@
+---
+title: "Predicting Final Grades"
+author: "Devin Harp"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document:
+    theme: cerulean
+    code_folding: hide
+---
+
+```{r load_library, include=FALSE}
+
+library(mosaic)
+library(tidyverse)
+library(DT)
+library(pander)
+library(ggthemes)
+
+```
+
+```{r load_data, include=FALSE}
+
+train <- read.csv('../../Data/math325grades_train.csv', stringsAsFactors = TRUE)
+test <- read.csv('../../Data/math325grades_test.csv', stringsAsFactors = TRUE)
+gradesTotal <- read.csv('../../Data/gradeTotals.csv', stringsAsFactors = TRUE)
+
+# datatable(bob_data, options = list(autoWidth = TRUE, lengthMenu = c(10, 20, 30)))
+
+```
+
+## {.tabset .tabset-pills .tabset-fade}
+
+### Background
+
+As the semester comes to a close, students usually worry what their final grade will be. They often look into how they are doing to get a general idea, but what if we could do an analysis on this? Is there a specific factor or factors (student performance is often characterized by more than one factor!) that can influence the likelihood of getting an A or above? The objective of this analysis is to help the Math 325 (Intermediate Statistics) class predict the likelihood they can get at least an A-.
+
+### Pairs Plot
+
+This pairs plot features a slimmed down dataset in order to better find relationships of interest with the "success" variable on the Y axis. "Predicted Final Exam", Analyses Current Score", "Analyses Final Score", "Peer Review Current Score", "Peer Review Final Score", and others are of potential interest but because a student can only honorably do the peer review by first submitting an analysis, I will omit those two related variables and instead focus on the analysis current score and predicted final exam score which show great promise.
+
+When I took Math325, the thing I learned most about grades and overall success in the class was to stay on top of analyses (which I did not sadly do for Math 425...) and to study study study. Based on my prior experience, I am willing to bet that the main determinant factors would be involving exam scores and total score of analyses.
+
+```{r}
+
+train <- train %>%
+  mutate(success = ifelse(FinalScore >= 90, 1, 0),
+         analysesGrade = ifelse(AnalysesCurrentScore >= 89, 1, 0)) %>%
+  select(c("success", "analysesGrade", "Gender", "PredictedFinalExam", "AnalysesCurrentScore", "AnalysesFinalScore", "PeerReviewCurrentScore", "PeerReviewFinalScore", "SkillsQuizzesTotalCurrentScore", "SkillsQuizzesTotalFinalScore", "ClassActivitiesCurrentScore", "ClassActivitiesFinalScore", "AssessmentQuizzesCurrentScore", "AssessmentQuizzesFinalScore", "AssessmentQuizCompletionCurrentScore", "AssessmentQuizCompletionFinalScore", "FinalExamCurrentScore", "FinalExamFinalScore", "CurrentScore", "FinalScore", "CurrentGrade", "FinalGrade"))
+
+train$analysesGrade <- as.factor(train$analysesGrade)
+
+test <- test %>%
+  mutate(analysesGrade = ifelse(AnalysesCurrentScore >= 89, 1, 0),
+         analysesGrade = as.factor(analysesGrade))
+
+#make this example reproducible
+set.seed(777)
+
+#use 70% of dataset as training set and 30% as test set
+sample <- sample(c(TRUE, FALSE), nrow(train), replace=TRUE, prob=c(0.6,0.4))
+myTrain  <- train[sample, ]
+myTest   <- train[!sample, ]
+  
+```
+
+```{r, fig.height = 20, fig.width = 20}
+
+pairs(train)
+
+```
+
+### Model
+
+I mentioned before that a predicted final exam score would be of interest and most likely significant, but surprisingly, it wasn't significant! This model down below showcases the most basic and sensible approach I could muster, and it does make sense. The analyses in the syllabus had a major contribution to the final grade which encouraged also resubmissions so you can get into the habit of understanding the niches of the statistical process and really understand what you're doing.
+
+$$
+P(Y_i = 1|\, x_{i1},x_{i2}) = \frac{e^{\beta_0 + \beta_1 x_{i1} + \beta_2 x_{i2}}}{1+e^{\beta_0 + \beta_1 x_{i1} + \beta_2 x_{i2}}} = \pi_i
+$$
+
+where...
+
+* $Y_i$ = A binary value. If $Y_i$ equals 1, that indicates success of an A- (90) or greater. If it equals 0, it signifies any grade below 90.
+
+* $x_{i1}$ = The final exam score
+
+* $x_{i2}$ = Another binary variable. A 1 indicates a grade of A- or above (>= 90). If 0, it anything below 90.
+
+*AIC: 28.1*
+
+```{r}
+
+grades.glm <- glm(success ~ FinalExamFinalScore + analysesGrade, data = myTrain, family = binomial)
+summary(grades.glm) %>%
+  pander()
+
+```
+
+### Graph
+
+```{r message=FALSE, warning=FALSE}
+
+ggplot(train, aes(x = FinalExamFinalScore, y = success)) +
+  geom_point() +
+  stat_smooth(aes(color = analysesGrade), method = "glm", method.args = list(family = "binomial"), se = FALSE) +
+  labs(x = 'Final Exam Score', y = 'Likelihood of Receiving an A- or Greater', title = 'Predicting Math 325 Final Grades', color = 'Analyses Grade') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+It would seem that the analyses score have a massive effect on the likelihood someone will get an A or not because there is no edging towards very likely at all when someone has below a 90% accumulation. Those who do don't even come at 0%. If there is any take away from this graph is that it is important to do your analyses because there is no mistaking how important it is.
+
+### Model Testing & Prediction
+
+```{r}
+
+pred <- predict(grades.glm, myTest, type = "response")
+
+ml <- ifelse(pred > 0.5, 1, 0)
+
+table(ml, myTest$success) %>% 
+  pander()
+
+```
+
+```{r}
+
+ml2 <- (30 + 15)/(30 + 5 + 1 + 15)
+ml2 %>% 
+  pander()
+
+```
+
+The current model received an accuracy rating of 88% which is fairly high. More twinking or a different sample could allow for a possibly higher score. As it is now, I would say there is a strong chance we are able to predict if someone will get an A or not with room for miracles.
+
+```{r}
+
+test$FinalGrade <- ifelse(predict(grades.glm, test, type = "response") > .90, "A", "Other")
+
+# write.csv(test, "test.csv", row.names = FALSE)
+
+```
+
+### Conclusion
+
+If words earlier and the graph alone did not give the advice well enough, then here is the grand slammer principle for getting an A in Math 325: **DO YOUR ANALYSES AND KEEP RESUBMITTING!!!**. You will begin to really understand the R code, the statistics and interpretation of, and the underlying principles on how it all works the more you get involved. Doing this in turn will help you with your final exam score which also has an effect, but not nearly as much as resubmitting your analyses over and over again until you get that perfect score. Brother Saunders makes sure you get in this habit of thinking on every vital piece of information you can get from everything you do, and it will help you a lot in the long run even though it may be tiring. Trust me, you will thank yourself later.
+
+##

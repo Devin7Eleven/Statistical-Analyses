@@ -1,0 +1,287 @@
+---
+title: "Residuals Theory"
+author: "Devin Harp"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(ggthemes)
+
+```
+
+```{r data for graphs, message=FALSE, warning=FALSE}
+
+temp <- read.csv('../../Data/lm_1.csv')
+temp.lm <- lm(TempHi ~ Difference, data = temp)
+temp.avg <- mean(temp$TempHi)
+
+temp.nona <- temp %>%
+  na.omit()
+
+```
+
+Understanding linear regression is like owning a car. It doesn't take much to know how to use it but you can go further in your caretaking and skillset by understanding the inner workings under the hood. The purpose of this report is to go over the basics of linear regression's components and their meanings and how they work.
+
+## Residuals
+
+Let's begin with the most prominent part of regression that essentially creates the line of best fit, the residuals. The line is not without residuals and the residuals are not without the line, a conundrum that was solved by complex calculus equations. Residuals can be thought of as the "things left over", the distance between where the data point is and where the line estimates the point would have been without error given a specific X value. Residuals are calculated using this equation:
+
+$$
+r_i = Y_i - \hat{Y}_i
+$$
+
+Where $Y_i$ is the individual data point and $\hat{Y}_i$ is the predicted, or estimated, value of where we think it would be given our X value.
+
+Since a residual is the distance between the data point and the estimated line, we can think of a single residual as telling us how far off the actual data point was from our prediction. Consider the graph below that was used in a previous analysis to predict the weather.
+
+```{r residual graph, echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(temp) +
+  aes(x = Difference, y = TempHi) +
+  geom_point(color = 'red', alpha = 0.3) +
+  geom_smooth(method = 'lm', se = FALSE, color = 'red') +
+  geom_point(x = -2, y = 77.07497, size = 3) +
+  geom_point(x = 18, y = 82, size = 3) +
+  geom_text(x = 5, y = 76.3, label = "Predicted High Temp for Monday", size = 3) +
+  geom_text(x = 19, y = 83.5, label = "Actual High Temp (82)", size = 3) +
+  scale_y_continuous(breaks = seq(60, 90, 2)) +
+  scale_x_continuous(breaks = seq(-20, 30, 5)) +
+  labs(x = 'Difference in Temperature of Two Days Prior', y = 'High Temperature in Fahrenheit', title = 'High Temperatures and Their Change', subtitle = 'Rexburg, ID September 2022') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        panel.grid.major = element_line(color = 'lightgray'),
+        axis.title.x = element_text(vjust = -1),
+        axis.title.y = element_text(vjust = 2))
+
+```
+
+While not the best representation of a beautiful looking linear regression model, it is adequate enough to teach the basic principles. Notice the lighter red dots and the deep red line. Now let's look at the graph below that show the residual for each data point.
+
+```{r residual graph w/ lines1, echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(na.omit(temp),  aes(x = Difference, y = TempHi)) +
+  geom_point(color = 'red', size = 2) +
+  geom_smooth(method = 'lm', se = FALSE, color = 'red', formula = y ~ x) +
+  geom_segment(aes(x = Difference, xend = Difference, y = TempHi, yend = temp.lm$fitted.values), color = 'black', size = 1) +
+  scale_y_continuous(breaks = seq(60, 90, 2)) +
+  scale_x_continuous(breaks = seq(-20, 30, 5)) +
+  labs(x = 'Difference in Temperature of Two Days Prior', y = 'High Temperature in Fahrenheit', title = 'High Temperatures and Their Change') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.grid.major = element_line(color = 'lightgray'),
+        axis.title.x = element_text(vjust = -1),
+        axis.title.y = element_text(vjust = 2))
+
+```
+
+The black lines are the residuals, the distance between $Y_i$ (the actual data point) and $\hat{Y}_i$ (our prediction, represented as a line). The beauty of residuals is that everything we do in linear regression revolves around them. Once you understand the concept of residuals, everything else follows.
+
+With that all said, we can delve deeper into the actual high temp residual and see how it differs from our fitted line.
+
+```{r actual temp}
+
+ggplot(na.omit(temp),  aes(x = Difference, y = TempHi)) +
+  geom_smooth(method = 'lm', se = FALSE, color = 'red', formula = y ~ x) +
+  geom_point(x = -2, y = 77.07497, size = 3) +
+  geom_point(x = 18, y = 82, size = 3) +
+  geom_segment(aes(x = 18, xend = 18, y = 82, yend = 78.20983), color = 'black', size = 1) +
+  geom_text(x = 5, y = 76.3, label = "Predicted High Temp for Monday", size = 3) +
+  geom_text(x = 19, y = 83.5, label = "Actual High Temp (82)", size = 3) +
+  ylim(c(60, 90)) +
+  scale_x_continuous(breaks = seq(-20, 30, 5)) +
+  labs(x = 'Difference in Temperature of Two Days Prior', y = 'High Temperature in Fahrenheit', title = 'High Temperatures and Their Change') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.grid.major = element_line(color = 'lightgray'),
+        axis.title.x = element_text(vjust = -1),
+        axis.title.y = element_text(vjust = 2))
+
+```
+
+In this graph, our values are:
+
+- $Y$ = 82
+
+- $\hat{Y}_i$ = 78.20983
+
+- $r_i$ = 3.79017
+
+This translates to that our expected value differed of 3.79F to the actual temperature. Not horrible a guess, but not exact either. 
+
+## SSE (Sum of Square Errors)
+
+The next topic is the Sum of Square Errors (SSE). This one is fairly straight forward because it's almost largely the same concept you learned before, residuals! Take a look again at the residual formula:
+
+$$
+r_i = Y_i - \hat{Y}_i
+$$
+
+Now take a look at the Sum of Square Errors formula (don't worry, we will explain it further):
+
+$$
+SSE = \sum_{i=1}^n (Y_i - \hat{Y}_i)^2
+$$
+
+See anything similar? Within the SSE formula, you should have noticed the residual formula! Now, why is it being squared and what is that summation symbol doing there with the weird annotations? Consider our graph again with the residuals.
+
+```{r residual graph w/ lines2, echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(na.omit(temp),  aes(x = Difference, y = TempHi)) +
+  geom_point(color = 'red', size = 2) +
+  geom_smooth(method = 'lm', se = FALSE, color = 'red', formula = y ~ x)+
+  geom_segment(aes(x = Difference, xend = Difference, y = TempHi, yend = temp.lm$fitted.values), color = 'black', size = 1) +
+  scale_y_continuous(breaks = seq(60, 90, 2)) +
+  scale_x_continuous(breaks = seq(-20, 30, 5)) +
+  labs(x = 'Difference in Temperature of Two Days Prior', y = 'High Temperature in Fahrenheit', title = 'High Temperatures and Their Change') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.grid.major = element_line(color = 'lightgray'),
+        axis.title.x = element_text(vjust = -1),
+        axis.title.y = element_text(vjust = 2))
+
+```
+
+Knowing the residual of one data point is well and good, but often we want to know the total residual amount for the  However, notice that some residuals go below the line while others go above. If we add these together, we run the risk of them cancelling each other out! For example, if one residual is -5 and another is 5, if we add them together and divide by 2, we get 0 which is not helpful in the slightest. So how do we solve this problem? We square the residuals and then add them together! But wait, wouldn't it be easier and more common sense to just do the absolute value? Theoretically yes but there is power to squaring that involves calculus level knowledge which I unfortunately do not have at the time of writing. Regardless, squaring forces the residual to all become positive. Once they are squared, we can then sum (by the $\sum$ notation) them all to get, you got it, the Sum of Square Errors.
+
+To calculate the SSE in R, the code is as follows: $sum( lmObject\$res^2 )$
+For this dataset, the SSE is 1377.59
+
+The graph below visualizes what the SSE looks like. On it's own, SSE isn't entirely useful or interprettable (all we would know that closer to 0 is more desirable) but we will soon see SSE is used in other calculations that will provide more meaningful insight.
+
+```{r residual graph w/ box1, echo = FALSE, message = FALSE, warning = FALSE}
+
+ggplot(na.omit(temp),  aes(x = Difference, y = TempHi)) +
+  geom_point(color = 'red', size = 2) +
+  geom_smooth(method = 'lm', se = FALSE, color = 'red', formula = y ~ x)+
+  geom_segment(aes(x = Difference, xend = Difference, y = TempHi, yend = temp.lm$fitted.values), color = 'black', size = 1) +
+  geom_rect(aes(xmin = Difference, xmax = Difference - temp.lm$residuals * 1.2, ymin = TempHi, ymax = temp.lm$fitted.values), alpha = 0.3) +
+  scale_y_continuous(breaks = seq(60, 90, 2)) +
+  scale_x_continuous(breaks = seq(-20, 30, 5)) +
+  labs(x = 'Difference in Temperature of Two Days Prior', y = 'High Temperature in Fahrenheit', title = 'High Temperatures and Their Change') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.grid.major = element_line(color = 'lightgray'),
+        axis.title.x = element_text(vjust = -1),
+        axis.title.y = element_text(vjust = 2))
+
+```
+
+## SSR (Sum of Squares Regression)
+
+Now for the real meat of the linear regression. While SSE revolves around the total distance of the residuals from the line (squared), the SSR tells us how much the regression line deviates from the average y-value ($\bar{Y}$). What we essentially do is we look at where our $Y_i$ data point lies on the X axis, go up to the fitted $\hat{Y_i}$ value on the line for that X value, and then get the distance of that value to the average y-value ($\bar{Y}$). This is summarized in the following equation:
+
+$$SSR = \sum_{i=1}^n (\hat{Y}_i - \bar{Y})^2$$
+
+Again what we are doing is getting the sum of all the squared results since we run the risk of some values cancelling others out. This concept is better understood by the graph below.
+
+```{r ssr graph, message=FALSE, warning=FALSE}
+
+ggplot(na.omit(temp), aes(x = Difference, y = TempHi)) +
+  geom_point(color = 'red', alpha = 0.3) +
+  geom_smooth(method = 'lm', se = FALSE, color = 'red') +
+  geom_hline(aes(yintercept = temp.avg), color = 'gray', linetype = 'dashed', size = 1) +
+  geom_segment(aes(x = Difference, xend = Difference, y = temp.lm$fitted.values, yend = rep(temp.avg,26)), color = 'black', size = 1) +
+  scale_y_continuous(breaks = seq(60, 90, 2)) +
+  scale_x_continuous(breaks = seq(-20, 30, 5)) +
+  labs(x = 'Difference in Temperature of Two Days Prior', y = 'High Temperature in Fahrenheit', title = 'High Temperatures and Their Change', subtitle = 'Rexburg, ID September 2022') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        panel.grid.major = element_line(color = 'lightgray'),
+        axis.title.x = element_text(vjust = -1),
+        axis.title.y = element_text(vjust = 2))
+
+```
+
+As stated earlier, this particular regression isn't the best to show visibly the different aspects of a regression due to the line being nearly the same as $\bar{Y}$. Albeit, you can see the black lines going from the fitted line to the average y-value line. This distance is SSR and is used to show the proportion of variation in Y that is explained by the regression.
+
+Why are we using the mean however? Well, without variation every dot would be the same and the overall mean would be our estimate for that scenario. However, due to variation we cannot do such a thing and our regression line becomes the new tool in predicting the average y-value if we think there is a given law or relationship between x and y. Thus, SSR is important in determining how much our regression is able to explain the variation in y in relevance to the mean.
+
+To calculate the SSR in R, use the following code: $sum( (lmObject\$fit - mean(YourData\$Y))^2 )$
+The SSR for this dataset is 8.755975, an extremely small number in relation to the SSE which means our regression doesn't do a very good job of predicting the weather.
+
+## SSTO
+
+The final in the SS series is the Sum of Squares Total, and it's essentially what you think it is - the total sum of squares from the above two parts. It is summarized by the following equation and tells us the total deviation of the data point from the average y-value.
+
+$$SSR + SSE = SSTO\text{ or } SSTO = \sum_{i=1}^n (Y_i - \bar{Y})^2$$
+
+```{r ssto graph, message=FALSE, warning=FALSE}
+
+ggplot(na.omit(temp), aes(x = Difference, y = TempHi)) +
+  geom_point(color = 'red', alpha = 0.3) +
+  geom_smooth(method = 'lm', se = FALSE, color = 'red') +
+  geom_hline(aes(yintercept = temp.avg), color = 'gray', linetype = 'dashed', size = 1) +
+  geom_segment(aes(x = Difference, xend = Difference, y = TempHi, yend = rep(temp.avg,26)), color = 'black', size = 1) +
+  scale_y_continuous(breaks = seq(60, 90, 2)) +
+  scale_x_continuous(breaks = seq(-20, 30, 5)) +
+  labs(x = 'Difference in Temperature of Two Days Prior', y = 'High Temperature in Fahrenheit', title = 'High Temperatures and Their Change', subtitle = 'Rexburg, ID September 2022') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        panel.grid.major = element_line(color = 'lightgray'),
+        axis.title.x = element_text(vjust = -1),
+        axis.title.y = element_text(vjust = 2))
+
+```
+
+There is a lot of power in knowing the total variation from the average y-value as it is used to calculate for $R^2$ which we will learn later on which combines SSE, SSR, and SSTO.
+
+The code to calculate the SSTO in R is: $sum( (YourData\$Y - mean(YourData\$Y))^2 )$
+The SSTO for this dataset is 1386.346
+
+As stated before, SSTO is the combination of the SSE and SSR. If we add our numbers from the SSE and SSR (1377.59 + 8.755975) we get the same number as we did from the manual code, 1386.346.
+
+## R Squared
+
+Now consider that if the SSTO is the total variance and SSR is the amount of variation explained by the regression line, we can use these two to get the proportion of how much variance is explained by the regression line using a very simple mathematical formula as followed for $R^2$.
+
+$$R^2 = \frac{SSR}{SSTO} \text{ or }= 1 - \frac{SSE}{SSTO}$$
+
+There are two ways of thinking about this. We can just simply use SSR and divide it by the SSTO which gives the proportion of the part over the whole (variation explained by the regression line divided by the total variance) or we can think of it as having the whole (1) and subtracting the proportion of the total residual variance divided by the total variance to get the leftover, which is the SSR in this regard (we are essentially solving for SSR in scenario two).
+
+Let's illustrate this in a graph.
+
+```{r r squared graph, message=FALSE, warning=FALSE}
+
+ggplot(na.omit(temp),  aes(x = Difference, y = TempHi)) +
+  geom_point(color = 'red', size = 2) +
+  geom_smooth(method = 'lm', se = FALSE, color = 'red', formula = y ~ x) +
+  geom_hline(aes(yintercept = temp.avg), color = 'gray', linetype = 'dashed', size = 1) +
+  geom_rect(aes(xmin = Difference, xmax = Difference - temp.lm$residuals * 1.4, ymin = TempHi, ymax = temp.avg), fill = 'gray', alpha = 0.3) +
+  geom_rect(aes(xmin = Difference, xmax = Difference - 3, ymin = temp.lm$fitted.values, ymax = temp.avg), fill = 'blue', alpha = 0.3) +
+  scale_y_continuous(breaks = seq(60, 90, 2)) +
+  scale_x_continuous(breaks = seq(-20, 30, 5)) +
+  labs(x = 'Difference in Temperature of Two Days Prior', y = 'High Temperature in Fahrenheit', title = 'High Temperatures and Their Change') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5),
+        panel.grid.major = element_line(color = 'lightgray'),
+        axis.title.x = element_text(vjust = -1),
+        axis.title.y = element_text(vjust = 2))
+
+```
+
+Hard to see but the gray boxes represent the SSTO while the blue ones represent the SSR. Essentially what we do is by dividing the SSR by the SSTO we are able to get a 'best fit' for the line where the squares have the smallest possible values between each point. Since $R^2$ is between 0 and 1 as a proportion, 0 will tell us that the regression accounts for no variation in the data while 1 would indicate it describes all the variation in the data. The closer to 1 $R^2$ gets, the better our line is at predicting y-values.
+
+The $R^2$ for this dataset specifically was 0.006, which is pretty horrible to put it lightly.
+
+## MSE (Mean Square Error) & Residual Standard Error
+
+The MSE, our Mean Square Error, is fairly simple to comprehend and will be the avenue providing a critical source for interpreting important statistical numbers. In the name, it is the mean square, or in other words "the average box size". The MSE is our estimation of variance ($\sigma^2$) and is calculated by this equation.
+
+$$MSE = \frac{SSE}{n-p}$$
+
+MSE since it's the average box size, can be infinitely big but at that point a regression line would probably be useless. Smaller the better would be ideal as the smaller the MSE is, the bigger $R^2$ becomes. These two things are inversely proportional to one another. By square rooting you also get the average deviation of the residuals from the regression line which goes back into the same units as the dataset as MSE is squared. This is the residual standard error ($\sqrt{MSE}$) which is our estimation for $\sigma$.
+
+Lastly, there is a crucial differentiation between the P value and the $R^2$. The P value tells us if there is a law, or relationship, between the two quanitative values while the $R^2$ tells us how obedient those dots are to that law. In other words, a significant P value does not mean the law is automatically meaningful. You can have a significant P value but a relationship that is hardly noticeable for the everyday average Joe.

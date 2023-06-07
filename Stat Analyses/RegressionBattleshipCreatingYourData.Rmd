@@ -1,0 +1,604 @@
+---
+title: "Regression Battleship - Creating your Data"
+author: "Devin Harp"
+output: 
+  html_document:
+    theme: cerulean
+    code_folding: hide
+---
+
+```{r message=FALSE, warning=FALSE}
+library(pander)
+library(tidyverse)
+```
+
+# {.tabset .tabset-pills}
+
+## Instructions 
+
+Using [Desmos](https://www.desmos.com/calculator), design a "true linear regression model" that is **2D-Drawable**, and follows all other **Regression Battleship Rules** (listed below), that is of the form 
+
+$$
+  Y_i = \beta_0 + \underbrace{\quad\quad\quad\ldots\quad\quad\quad}_\text{Your Model Goes Here} + \epsilon_i \quad \text{where} \ \epsilon_i \sim N(0, \sigma^2)
+$$ 
+
+Then, use a simulation in R and your linear regression model to obtain a sample of data saved as `rbdata.csv`. 
+
+Your sample of data will be given to other students and your teacher, but this Rmd file (which contains the secret on how you made your data) will remain hidden until after the competition is complete. Your teacher and two of your peers will use the sample of data your provide, `rbdata.csv`, to try to **guess** the **true linear regression model** you used to create the data. The goal is to hide your model well enough that no one can find it, while keeping the R-squared of your data as high as possible.
+
+### Official Rules {.tabset}
+
+#### Advanced Level Competition
+
+Competing in the *Advanced Level* will allow you the opportunity to earn full credit on the Regression Battleship portion of your grade in Math 425 (which is 15% of your Final Grade). However, if you compete at this level, you cannot ever discuss your actual model with your teacher. You can still ask for help from the TA, tutors, or other students that you are not competing against. And you can ask "vague" questions to your teacher as long as it doesn't give too much away about your model.
+
+There are five official rules your model must abide by. If you break any of the rules, you will be disqualified from winning the competition and a grade penalty will result.
+
+1. Your csv file `rbdata.csv` must contain **11 columns of data**.
+    * The first column must be your (1) y-variable (labeled as `y`).
+    * The other ten columns must be (10) x-variables (labeled as `x1`, `x2`, ... , `x10`). *Please use all lower-case letters.* It does not matter which x-variables you use in your model, and you don't need to use all 10 x-variables in your model.
+   
+<br/>
+    
+2. Your **y-variable** (or some transformation of the y-variable) must have been **created from a linear regression model** using only x-variables (or transformations of those x-variables) **from** within **your data set**.
+    * Be very careful with transformations. You must ensure that you do not break the rules of a linear regression if you choose to use transformations.
+    * If you choose transformations, only these functions are allowed when transforming X and Y variables: `1/Y^2`, `1/Y`, `log(Y)`, `sqrt(Y)`, `sqrt(sqrt(Y))`, `Y^2`, `Y^3`, `1/X^2`, `1/X`, `log(X)`, `sqrt(X)`, `sqrt(sqrt(X))`, `X^2`, `X^3`, `X^4`, and `X^5`. Don't forget to check Rule #3 carefully if you choose transformations.
+
+<br/>
+    
+3. Your **sample size** must be sufficiently large so that when the true model is fit to your data using lm(...), **all p-values** of terms found in the `summary(...)` output **are significant** at the $\alpha = 0.05$ level.
+
+4. The $R^2$ value ("Multiple R-squared", not the "Adjusted R-squared") of your true model fit on your `rbdata` sample must be greater than or equal to $0.30$. The higher your $R^2$ value, the more impressive your model.
+
+5. Your true model must be **2D-drawable**. This means that it can be drawn in both Desmos and with a single 2D scatterplot in R.
+
+<br/>
+<br/>
+
+
+#### Intermediate Level Competition
+
+Competing in the *Intermediate Level* will **only** allow you to earn **up to 88%** of the full credit that is possible on the Regression Battleship portion of your grade in Math 425 (which is 15% of your Final Grade). *However, getting 88% of the grade is better than failing* the advanced level competition and getting 0% of the Regression Battleship grade. So choose this option if you are not feeling comfortable with your abilities to compete at the Advanced Level. The good news is that if you choose this option, your teacher can help you with your model to make sure everything is correct before you turn it in.
+
+For the Intermediate Level competition, there are also five official rules your model must abide by. If you break any of the rules, you will be disqualified from winning the Intermediate Level competition and a point penalty will be applied to your grade.
+
+1. Your csv file `rbdata.csv` must contain **6 columns of data**.
+    * The first column must be your (1) y-variable (labeled as `y`).
+    * The other five columns must be (5) x-variables (labeled as `x1`, `x2`, `x3`, `x4` , `x5`). *Please use all lower-case letters.* It does not matter which x-variables you use in your model, and you don't need to use all 5 x-variables in your model.
+   
+<br/>
+    
+2. Your **y-variable** must have been **created from a linear regression model** using only x-variables **from** within **your data set**.
+    * No transformations of y-variables or x-variables are allowed in the Intermediate Level competition.
+
+<br/>
+    
+3. Your **sample size** must be sufficiently large so that when the true model is fit to your data using lm(...), **all p-values** of terms found in the `summary(...)` output **are significant** at the $\alpha = 0.05$ level.
+
+4. The $R^2$ value ("Multiple R-squared", not the "Adjusted R-squared") of your true model fit on your `rbdata` sample must be greater than or equal to $0.80$.
+
+5. Your true model must be **2D-drawable**. This means that it can be drawn in Desmos and with a single 2D scatterplot in R.
+
+<br/>
+<br/>
+
+
+
+## Desmos 
+
+Start by creating a picture of your true model in Desmos. Snip a screenshot of your completed model. Include a picture of your Desmos graph showing your true model.
+
+![](../../images/Desmos.png) 
+
+
+## Code
+
+Use the R-chunks below to create your simulated sample of data from your true regression model.
+
+
+```{r, comment=NA}
+set.seed(400) #This ensures the randomness is the "same" everytime if you play the entire R-chunk as one entire piece of code. If you run lines separately, your data might not come out the same every time. You can pick any integer value you want for set.seed. Each choice produces a different sample, so you might want to play around with a few different choices.
+
+## To begin, decide on your sample size. (You may have to revise it later to ensure all values in your lm(...) are significant.)
+
+n <- 1000
+
+## Then, create 10 X-variables using functions like rnorm(n, mean, sd), rchisq(n, df), rf(n, df1, df2), rt(n, df), rbeta(n, a, b), runif(n, a, b) or sample(c(1,0), n, replace=TRUE)... ## To see what any of these functions do, run codes like hist(rchisq(n, 3)). These functions are simply allowing you to get a random sample of x-values. But the way you choose your x-values can have quite an impact on what the final scatterplot of the data will look like.
+
+x1 <- sample(c(0, 1), n, replace = TRUE) #Garbage
+x2 <- runif(n, -1.2, 1.2) #TRUE X
+x3 <- rchisq(n, 1)
+x4 <- sample(c(0, 1), n, replace = TRUE) #TRUE SWITCH
+x5 <- sample(c(0, 1), n, replace = TRUE) #TRUE SWITCH
+x6 <- sample(c(0, 1), n, replace = TRUE) #Garbage
+x7 <- runif(n, -1.4, 1.4)
+x8 <- sample(c(0, 1), n, replace = TRUE) #TRUE SWITCH
+x9 <- runif(n, -1.4, 1.4)
+x10 <- sample(c(0, 1), n, replace = TRUE) #Garbage
+
+x5[x4 == 1 | x8 == 1] <- 0
+
+## Then, create betas, sigma, normal error terms and y
+
+beta0 <- 2
+beta1 <- -2
+beta2 <- 1
+beta3 <- -2
+beta4 <- -0.8
+beta5 <- 3
+beta6 <- -16
+beta7 <- 9
+beta8 <- -5
+beta9 <- 30
+beta10 <- -1
+beta11 <- -18
+beta12 <- -1
+
+sigma <- 1.5 #change to whatever positive number you want
+
+################################
+# You ARE NOT ALLOWED to change this part:
+epsilon_i <- rnorm(n, 0, sigma)
+################################ 
+
+#An example of how to make Y...
+# y <-  beta0 + beta1*X1 + beta2*X2 + beta3*X4*X2 + epsilon_i
+
+y <- beta0*x2^2 + beta12 + beta1*(x2^2)*x4 + beta2*(x2^3)*x4 + beta3*x2*x5 + beta4*(x2^2)*x5 + beta5*x8 + beta6*(x2^2)*x8 + beta7*(x2^4)*x8 + beta8*x4*x8 + beta9*(x2^2)*x4*x8 + beta10*(x2^3)*x4*x8 + beta11*(x2^4)*x4*x8 + epsilon_i  #...edit this code and replace it with your model. Don't forget the + epsilon_i!
+
+## Now, you need to load your x-variables and y-variable 
+## into a data set.
+# You can include Y' or X' instead of Y or X if you wish.
+# Remember, only these functions are allowed when transforming
+# variables: 1/Y^2, 1/Y, log(Y), sqrt(Y), sqrt(sqrt(Y)), Y^2, Y^3, 1/X^2, 1/X, log(X), sqrt(X), sqrt(sqrt(X)), X^2, X^3, X^4, X^5. 
+#########################################################
+# ILLEGAL: Y = (beta0 + beta1*X5)^2 + epsilon_i #########
+#########################################################
+# Legal: sqrt(Y) = beta0 + beta1*X5^2 + epsilon_i #######
+#########################################################
+# You can only transform individual terms, not groups of terms.
+# And the beta's cannot be part of the x-transformations.
+
+# This loads your data into a data set:
+rbdata <- data.frame(y, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10)
+
+#Now fit your model to make sure it comes out significant:
+mylm <- lm(y ~ I(x2^2) + I(x2^2):x4 + I(x2^3):x4 + x2:x5 + I(x2^2):x5 + x8 + I(x2^2):x8 + I(x2^4):x8 + x4:x8 + I(x2^2):x4:x8 + I(x2^3):x4:x8 + I(x2^4):x4:x8, data = rbdata) #edit this code to be your true model
+summary(mylm)
+b <- coef(mylm)
+#all p-values must be significant
+#the R^2 value must be greater than or equal to 0.30.
+
+
+# Once you are done with creating your model, and have successfully
+# graphed it (see below), un-comment the following `write.csv` code,
+# then, PLAY this ENTIRE R-chunk to write your data to a csv.
+
+write.csv(rbdata, "rbdata.csv", row.names = FALSE)
+
+# The above code writes the dataset to your "current directory"
+# To see where that is, use: getwd() in your Console.
+# Find the rbdata.csv data set and upload it to I-Learn.
+
+```
+
+## R Plot
+
+Provide a 2D scatterplot that shows both your *true* model (dashed lines) and *estimated* model (solid lines) on the same scatterplot. This should match your Desmos graph. 
+
+```{r}
+plot(y ~ x2, data = rbdata)
+
+x4 <- 0
+x8 <- 0
+x5 <- 0
+
+curve(b[1] + b[2]*x^2 + b[3]*x8 + b[4]*(x^2)*x4 + b[5]*x4*(x^3) + b[6]*x*x5 + b[7]*x5*(x^2) + b[8]*x8*(x^2) + b[9]*x8*(x^4) + b[10]*x4*x8 + b[11]*x4*x8*(x^2) + b[12]*x8*x4*(x^3) + b[13]*x4*x8*(x^4), col = 'green', add = TRUE)
+
+x4 <- 1
+x8 <- 0
+x5 <- 0
+
+curve(b[1] + b[2]*x^2 + b[3]*x8 + b[4]*(x^2)*x4 + b[5]*x4*(x^3) + b[6]*x*x5 + b[7]*x5*(x^2) + b[8]*x8*(x^2) + b[9]*x8*(x^4) + b[10]*x4*x8 + b[11]*x4*x8*(x^2) + b[12]*x8*x4*(x^3) + b[13]*x4*x8*(x^4), col = 'orange', add = TRUE)
+
+x4 <- 0
+x8 <- 0
+x5 <- 1
+
+curve(b[1] + b[2]*x^2 + b[3]*x8 + b[4]*(x^2)*x4 + b[5]*x4*(x^3) + b[6]*x*x5 + b[7]*x5*(x^2) + b[8]*x8*(x^2) + b[9]*x8*(x^4) + b[10]*x4*x8 + b[11]*x4*x8*(x^2) + b[12]*x8*x4*(x^3) + b[13]*x4*x8*(x^4), col = 'red', add = TRUE)
+
+x4 <- 0
+x8 <- 1
+x5 <- 0
+
+curve(b[1] + b[2]*x^2 + b[3]*x8 + b[4]*(x^2)*x4 + b[5]*x4*(x^3) + b[6]*x*x5 + b[7]*x5*(x^2) + b[8]*x8*(x^2) + b[9]*x8*(x^4) + b[10]*x4*x8 + b[11]*x4*x8*(x^2) + b[12]*x8*x4*(x^3) + b[13]*x4*x8*(x^4), col = 'purple', add = TRUE)
+
+x4 <- 1
+x8 <- 1
+x5 <- 0
+
+curve(b[1] + b[2]*x^2 + b[3]*x8 + b[4]*(x^2)*x4 + b[5]*x4*(x^3) + b[6]*x*x5 + b[7]*x5*(x^2) + b[8]*x8*(x^2) + b[9]*x8*(x^4) + b[10]*x4*x8 + b[11]*x4*x8*(x^2) + b[12]*x8*x4*(x^3) + b[13]*x4*x8*(x^4), col = 'blue', add = TRUE)
+
+### True Line
+
+x4 <- 0
+x8 <- 0
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'green', add = TRUE, lty = 2)
+
+x4 <- 1
+x8 <- 0
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'orange', add = TRUE, lty = 2)
+
+x4 <- 0
+x8 <- 0
+x5 <- 1
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'red', add = TRUE, lty = 2)
+
+x4 <- 0
+x8 <- 1
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'purple', add = TRUE, lty = 2)
+
+x4 <- 1
+x8 <- 1
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'blue', add = TRUE, lty = 2)
+```
+
+
+## Math Model
+
+Write out your "true" model in mathematical form. Make sure it matches your code. This could be "painful" if you chose a complicated model.
+
+$$
+\ Y_i = \beta_0 + \beta_1 X_2^2 + \beta_2 X_2^2 X_4 + \beta_3 X_2^3 X_4 + \beta_4 X_2 X_5 + \beta_5 X_2^2 X_5 + \beta_6 X_8 + \beta_7 X_2^2 X_8 + \beta_8 X_2^4 X_8 + \beta_9 X_4 X_8
+$$
+$$
++ \beta_{10} X_2^2 X_4 X_8 + \beta_{11} X_2^3 X_4 X_8 + \beta_{12} X_2^4 X_4 X_8 + \epsilon_i
+$$
+
+## Results
+
+Once the Regression Battleship competition is completed, you will be given instructions on how to complete this section. The basic idea is to compare the three guesses at your true model (from two peers, and your teacher) to decide who won (i.e., who had the closest guess).
+
+```{r}
+
+set.seed(777)
+
+n <- 1000
+
+x1 <- sample(c(0, 1), n, replace = TRUE) # Garbage
+x2 <- runif(n, -1.2, 1.2) # TRUE X
+x3 <- rchisq(n, 1)
+x4 <- sample(c(0, 1), n, replace = TRUE) # TRUE SWITCH
+x5 <- sample(c(0, 1), n, replace = TRUE) # TRUE SWITCH
+x6 <- sample(c(0, 1), n, replace = TRUE) # Garbage
+x7 <- runif(n, -1.4, 1.4)
+x8 <- sample(c(0, 1), n, replace = TRUE) # TRUE SWITCH
+x9 <- runif(n, -1.4, 1.4)
+x10 <- sample(c(0, 1), n, replace = TRUE) # Garbage
+
+x5[x4 == 1 | x8 == 1] <- 0
+
+beta0 <- 2
+beta1 <- -2
+beta2 <- 1
+beta3 <- -2
+beta4 <- -0.8
+beta5 <- 3
+beta6 <- -16
+beta7 <- 9
+beta8 <- -5
+beta9 <- 30
+beta10 <- -1
+beta11 <- -18
+beta12 <- -1
+
+sigma <- 1.5
+
+# You ARE NOT ALLOWED to change this part:
+epsilon_i <- rnorm(n, 0, sigma)
+
+y <- beta0*x2^2 + beta12 + beta1*(x2^2)*x4 + beta2*(x2^3)*x4 + beta3*x2*x5 + beta4*(x2^2)*x5 + beta5*x8 + beta6*(x2^2)*x8 + beta7*(x2^4)*x8 + beta8*x4*x8 + beta9*(x2^2)*x4*x8 + beta10*(x2^3)*x4*x8 + beta11*(x2^4)*x4*x8 + epsilon_i
+
+# This loads your data into a data set:
+rbdata2 <- data.frame(y, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10)
+
+# Guesses
+# True model
+d.lm <- lm(y ~ I(x2^2) + I(x2^2):x4 + I(x2^3):x4 + x2:x5 + I(x2^2):x5 + x8 + I(x2^2):x8 + I(x2^4):x8 + x4:x8 + I(x2^2):x4:x8 + I(x2^3):x4:x8 + I(x2^4):x4:x8, data = rbdata)
+
+# Talbot
+t.lm <- lm(y ~ x2 + I(x2^2) + x4 + x8:x4:I(x2^2) + x4:x8:I(x2^4) + x2:x8 + I(x2^2):x8 + I(x2^4):x8 + x2:x5 + x5, data = rbdata)
+b.t <- coef(t.lm)
+
+# Clara
+c.lm <- lm(y ~ x2 + I(x2^2) + x4 + x4:x2 + x8:I(x2^2) + x8:x2 + x8 + x4:x8:I(x2^2) + x1:I(x2^2) + x5 + x2:x5 + x2:x4:x8 + x4:x8:x10:x2 + x8:x10:I(x2^2), data = rbdata)
+b.c <- coef(c.lm)
+
+# Bro Saunders
+s.lm <- lm(y ~ I(x2^2) + x4:x2 + x4:I(x2^2) + x5:x2 + x5:I(x2^2) + x8 + x8:I(x2^2) + x8:I(x2^4) + x4:x8 + x4:x8:x2 + x4:x8:I(x2^2) + x4:x8:I(x2^4), data = rbdata)
+b.s <- coef(s.lm)
+
+```
+
+```{r}
+
+# Compute R-squared for each validation
+
+  # Get y-hat for each model on new data.
+  yhd <- predict(d.lm, newdata = rbdata2)
+  yht <- predict(t.lm, newdata = rbdata2)
+  yhc <- predict(c.lm, newdata = rbdata2)
+  yhs <- predict(s.lm, newdata = rbdata2)
+  
+  # Compute y-bar
+  ybar <- mean(rbdata2$y) #Yi is given by Ynew from the new sample of data
+  
+  # Compute SSTO
+  SSTO <- sum( (rbdata2$y - ybar)^2 )
+  
+  # Compute SSE for each model using y - yhat
+  SSEd <- sum( (rbdata2$y - yhd)^2 )
+  SSEt <- sum( (rbdata2$y - yht)^2 )
+  SSEc <- sum( (rbdata2$y - yhc)^2 )
+  SSEs <- sum( (rbdata2$y - yhs)^2 )
+  
+  # Compute R-squared for each
+  rsd <- 1 - SSEd/SSTO
+  rst <- 1 - SSEt/SSTO
+  rsc <- 1 - SSEc/SSTO
+  rss <- 1 - SSEs/SSTO
+  
+  # Compute adjusted R-squared for each
+  n <- length(rbdata2$y) #sample size
+  pd <- length(coef(d.lm)) #num. parameters in model
+  pt <- length(coef(t.lm)) #num. parameters in model
+  pc <- length(coef(c.lm)) #num. parameters in model
+  ps <- length(coef(s.lm)) #num. paramteres in model
+  rsda <- 1 - (n-1)/(n-pd)*SSEd/SSTO
+  rsta <- 1 - (n-1)/(n-pt)*SSEt/SSTO
+  rsca <- 1 - (n-1)/(n-pc)*SSEc/SSTO
+  rssa <- 1 - (n-1)/(n-ps)*SSEs/SSTO
+
+my_output_table2 <- data.frame(Model = c("True", "Talbot", "Clara", "Saunders"), `Original R2` = c(summary(d.lm)$r.squared, summary(t.lm)$r.squared, summary(c.lm)$r.squared, summary(s.lm)$r.squared), `Orig. Adj. R-squared` = c(summary(d.lm)$adj.r.squared, summary(t.lm)$adj.r.squared, summary(c.lm)$adj.r.squared, summary(s.lm)$adj.r.squared), `Validation R-squared` = c(rsd, rst, rsc, rss), `Validation Adj. R^2` = c(rsda, rsta, rsca, rssa))
+
+colnames(my_output_table2) <- c("Model", "Original $R^2$", "Original Adj. $R^2$", "Validation $R^2$", "Validation Adj. $R^2$")
+
+knitr::kable(my_output_table2, escape = TRUE, digits = 4)
+
+```
+
+```{r}
+# Talbot
+
+plot(y ~ x2, main = "Dallin Talbot's Guess", data = rbdata2)
+
+x4 = 0
+x5 = 0
+x8 = 0
+
+curve(b.t[1] + b.t[2]*x + b.t[3]*x^2 + b.t[4]*x4 + b.t[10]*x4*x8*x^2 + b.t[11]*x4*x8*x^4 + b.t[6]*x*x8 + b.t[7]*x8*x^2 + b.t[8]*x8*x^4 + b.t[9]*x*x5 + b.t[5]*x5, col = 'green', add = TRUE)
+
+x4 = 1
+x5 = 0
+x8 = 0
+
+curve(b.t[1] + b.t[2]*x + b.t[3]*x^2 + b.t[4]*x4 + b.t[10]*x4*x8*x^2 + b.t[11]*x4*x8*x^4 + b.t[6]*x*x8 + b.t[7]*x8*x^2 + b.t[8]*x8*x^4 + b.t[9]*x*x5 + b.t[5]*x5, col = 'orange', add = TRUE)
+
+x4 = 0
+x5 = 1
+x8 = 0
+
+curve(b.t[1] + b.t[2]*x + b.t[3]*x^2 + b.t[4]*x4 + b.t[10]*x4*x8*x^2 + b.t[11]*x4*x8*x^4 + b.t[6]*x*x8 + b.t[7]*x8*x^2 + b.t[8]*x8*x^4 + b.t[9]*x*x5 + b.t[5]*x5, col = 'red', add = TRUE)
+
+x4 = 0
+x5 = 0
+x8 = 1
+
+curve(b.t[1] + b.t[2]*x + b.t[3]*x^2 + b.t[4]*x4 + b.t[10]*x4*x8*x^2 + b.t[11]*x4*x8*x^4 + b.t[6]*x*x8 + b.t[7]*x8*x^2 + b.t[8]*x8*x^4 + b.t[9]*x*x5 + b.t[5]*x5, col = 'purple', add = TRUE)
+
+x4 = 1
+x5 = 0
+x8 = 1
+
+curve(b.t[1] + b.t[2]*x + b.t[3]*x^2 + b.t[4]*x4 + b.t[10]*x4*x8*x^2 + b.t[11]*x4*x8*x^4 + b.t[6]*x*x8 + b.t[7]*x8*x^2 + b.t[8]*x8*x^4 + b.t[9]*x*x5 + b.t[5]*x5, col = 'blue', add = TRUE)
+
+### True Line
+
+x4 <- 0
+x8 <- 0
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'green', add = TRUE, lty = 2)
+
+x4 <- 1
+x8 <- 0
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'orange', add = TRUE, lty = 2)
+
+x4 <- 0
+x8 <- 0
+x5 <- 1
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'red', add = TRUE, lty = 2)
+
+x4 <- 0
+x8 <- 1
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'purple', add = TRUE, lty = 2)
+
+x4 <- 1
+x8 <- 1
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'blue', add = TRUE, lty = 2)
+
+```
+
+```{r}
+# Clara
+
+plot(y ~ x2, main = "Clara Broberg's Guess", data = rbdata2)
+
+x1 = 0
+x4 = 0
+x5 = 0
+x8 = 0
+x10 = 0
+
+curve(b.c[1] + b.c[2]*x + b.c[3]*x^2 + b.c[4]*x4 + b.c[5]*x8 + b.c[6]*x5 + b.c[7]*x*x4 + b.c[8]*x8*x^2 + b.c[9]*x*x8 + b.c[10]*x1*x^2 + b.c[11]*x*x5 + b.c[12]*x4*x8*x^2 + b.c[13]*x*x4*x8 + b.c[14]*x^2*x8*x10 + b.c[15]*x*x4*x8*x10, col = 'green', add = TRUE)
+
+x1 = 1
+x4 = 0
+x5 = 0
+x8 = 0
+x10 = 0
+
+curve(b.c[1] + b.c[2]*x + b.c[3]*x^2 + b.c[4]*x4 + b.c[5]*x8 + b.c[6]*x5 + b.c[7]*x*x4 + b.c[8]*x8*x^2 + b.c[9]*x*x8 + b.c[10]*x1*x^2 + b.c[11]*x*x5 + b.c[12]*x4*x8*x^2 + b.c[13]*x*x4*x8 + b.c[14]*x^2*x8*x10 + b.c[15]*x*x4*x8*x10, col = 'orange', add = TRUE)
+
+x1 = 0
+x4 = 1
+x5 = 0
+x8 = 0
+x10 = 0
+
+curve(b.c[1] + b.c[2]*x + b.c[3]*x^2 + b.c[4]*x4 + b.c[5]*x8 + b.c[6]*x5 + b.c[7]*x*x4 + b.c[8]*x8*x^2 + b.c[9]*x*x8 + b.c[10]*x1*x^2 + b.c[11]*x*x5 + b.c[12]*x4*x8*x^2 + b.c[13]*x*x4*x8 + b.c[14]*x^2*x8*x10 + b.c[15]*x*x4*x8*x10, col = 'red', add = TRUE)
+
+x1 = 0
+x4 = 0
+x5 = 1
+x8 = 0
+x10 = 0
+
+curve(b.c[1] + b.c[2]*x + b.c[3]*x^2 + b.c[4]*x4 + b.c[5]*x8 + b.c[6]*x5 + b.c[7]*x*x4 + b.c[8]*x8*x^2 + b.c[9]*x*x8 + b.c[10]*x1*x^2 + b.c[11]*x*x5 + b.c[12]*x4*x8*x^2 + b.c[13]*x*x4*x8 + b.c[14]*x^2*x8*x10 + b.c[15]*x*x4*x8*x10, col = 'purple', add = TRUE)
+
+x1 = 0
+x4 = 0
+x5 = 0
+x8 = 1
+x10 = 0
+
+curve(b.c[1] + b.c[2]*x + b.c[3]*x^2 + b.c[4]*x4 + b.c[5]*x8 + b.c[6]*x5 + b.c[7]*x*x4 + b.c[8]*x8*x^2 + b.c[9]*x*x8 + b.c[10]*x1*x^2 + b.c[11]*x*x5 + b.c[12]*x4*x8*x^2 + b.c[13]*x*x4*x8 + b.c[14]*x^2*x8*x10 + b.c[15]*x*x4*x8*x10, col = 'blue', add = TRUE)
+
+x1 = 0
+x4 = 1
+x5 = 0
+x8 = 1
+x10 = 1
+
+curve(b.c[1] + b.c[2]*x + b.c[3]*x^2 + b.c[4]*x4 + b.c[5]*x8 + b.c[6]*x5 + b.c[7]*x*x4 + b.c[8]*x8*x^2 + b.c[9]*x*x8 + b.c[10]*x1*x^2 + b.c[11]*x*x5 + b.c[12]*x4*x8*x^2 + b.c[13]*x*x4*x8 + b.c[14]*x^2*x8*x10 + b.c[15]*x*x4*x8*x10, col = 'pink', add = TRUE)
+
+### True Line
+
+x4 <- 0
+x8 <- 0
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'green', add = TRUE, lty = 2)
+
+x4 <- 1
+x8 <- 0
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'orange', add = TRUE, lty = 2)
+
+x4 <- 0
+x8 <- 0
+x5 <- 1
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'red', add = TRUE, lty = 2)
+
+x4 <- 0
+x8 <- 1
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'purple', add = TRUE, lty = 2)
+
+x4 <- 1
+x8 <- 1
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'blue', add = TRUE, lty = 2)
+
+```
+
+```{r}
+
+# Saunders
+
+plot(y ~ x2, main = "Garrett Saunder's Guess", data = rbdata2)
+
+x4 = 0
+x5 = 0
+x8 = 0
+
+curve(b.s[1] + b.s[2]*x^2 + b.s[3]*x8 + b.s[4]*x*x4 + b.s[5]*x^2*x4 + b.s[6]*x*x5 + b.s[7]*x^2*x5 + b.s[8]*x^2*x8 + b.s[9]*x^4*x8 + b.s[10]*x4*x8 + b.s[11]*x*x4*x8 + b.s[12]*x^2*x4*x8 + b.s[13]*x^4*x4*x8, col = 'green', add = TRUE)
+
+x4 = 1
+x5 = 0
+x8 = 0
+
+curve(b.s[1] + b.s[2]*x^2 + b.s[3]*x8 + b.s[4]*x*x4 + b.s[5]*x^2*x4 + b.s[6]*x*x5 + b.s[7]*x^2*x5 + b.s[8]*x^2*x8 + b.s[9]*x^4*x8 + b.s[10]*x4*x8 + b.s[11]*x*x4*x8 + b.s[12]*x^2*x4*x8 + b.s[13]*x^4*x4*x8, col = 'orange', add = TRUE)
+
+x4 = 0
+x5 = 1
+x8 = 0
+
+curve(b.s[1] + b.s[2]*x^2 + b.s[3]*x8 + b.s[4]*x*x4 + b.s[5]*x^2*x4 + b.s[6]*x*x5 + b.s[7]*x^2*x5 + b.s[8]*x^2*x8 + b.s[9]*x^4*x8 + b.s[10]*x4*x8 + b.s[11]*x*x4*x8 + b.s[12]*x^2*x4*x8 + b.s[13]*x^4*x4*x8, col = 'red', add = TRUE)
+
+x4 = 0
+x5 = 0
+x8 = 1
+
+curve(b.s[1] + b.s[2]*x^2 + b.s[3]*x8 + b.s[4]*x*x4 + b.s[5]*x^2*x4 + b.s[6]*x*x5 + b.s[7]*x^2*x5 + b.s[8]*x^2*x8 + b.s[9]*x^4*x8 + b.s[10]*x4*x8 + b.s[11]*x*x4*x8 + b.s[12]*x^2*x4*x8 + b.s[13]*x^4*x4*x8, col = 'purple', add = TRUE)
+
+x4 = 1
+x5 = 0
+x8 = 1
+
+curve(b.s[1] + b.s[2]*x^2 + b.s[3]*x8 + b.s[4]*x*x4 + b.s[5]*x^2*x4 + b.s[6]*x*x5 + b.s[7]*x^2*x5 + b.s[8]*x^2*x8 + b.s[9]*x^4*x8 + b.s[10]*x4*x8 + b.s[11]*x*x4*x8 + b.s[12]*x^2*x4*x8 + b.s[13]*x^4*x4*x8, col = 'blue', add = TRUE)
+
+### True Line
+
+x4 <- 0
+x8 <- 0
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'green', add = TRUE, lty = 2)
+
+x4 <- 1
+x8 <- 0
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'orange', add = TRUE, lty = 2)
+
+x4 <- 0
+x8 <- 0
+x5 <- 1
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'red', add = TRUE, lty = 2)
+
+x4 <- 0
+x8 <- 1
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'purple', add = TRUE, lty = 2)
+
+x4 <- 1
+x8 <- 1
+x5 <- 0
+
+curve(beta12 + beta0*x^2 + beta5*x8 + beta1*(x^2)*x4 + beta2*x4*(x^3) + beta3*x*x5 + beta4*x5*(x^2) + beta6*x8*(x^2) + beta7*x8*(x^4) + beta8*x4*x8 + beta9*x4*x8*(x^2) + beta10*x8*x4*(x^3) + beta11*x4*x8*(x^4), col = 'blue', add = TRUE, lty = 2)
+
+```
+

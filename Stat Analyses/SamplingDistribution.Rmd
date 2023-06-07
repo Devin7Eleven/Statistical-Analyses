@@ -1,0 +1,185 @@
+---
+title: "Sampling Distributions Unveiled"
+author: "Devin Harp"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document:
+    theme: cerulean
+    code_folding: hide
+---
+
+```{r load_library, include=FALSE}
+
+library(tidyverse)
+
+```
+
+## {.tabset .tabset-pills .tabset-fade}
+
+### Sampling Distributions
+
+In statistics, majority of situations call for taking a sample of a population we are interested in researching since it would be highly inefficient and impractical to gather data on everyone/everything we would want. Because of the inherent nature of sampling, each handful you get from the population is randomized. Think of it as a giant bowl of M&Ms and recording the amount of different colors you get from each draw. This is essentially what a sampling distribution is. It is an attempt to get close to the population parameters by taking constant samples from the aforementioned population so we end up with a distribution of all possible sample statistics from the possible samples stemming from the overall population.
+
+In statistics, we designate the sample size as $n$ for samples and $N$ for population (population size). Once we have a desired sample size to go for, we proceed to obtain that sample from a population and then run a statistical inference such as a mean or median. This inference is then plotted on a histogram for frequency. These steps are repeated numerous times so we can get a view of our sample distribution and see if these frequencies are skewed, normal, or of some other distribution.
+
+For linear regression, we are most interested in the y-intercept and slope since this is where most of the math behind the models come from. The bottom graph will first show what a sampling distribution looks like when viewed from the full basic regression model.
+
+```{r load_data, include=FALSE}
+
+# Parts of the true model
+n <- 200
+Xstart <- 30
+Xstop <- 100
+
+beta_0 <- 7
+beta_1 <- 5
+sigma <- 17
+
+X <- rep(seq(Xstart, Xstop, length.out = n/2), each = 2)
+
+```
+
+```{r fig.height = 10, fig.width = 10}
+
+# Number of times to do a randon sample
+N <- 2000
+
+# Storage variables to hold new samples
+storage_yint <- rep(NA, N)
+storage_slope <- rep(NA, N)
+storage_rmse <- rep(NA, N)
+
+for (i in 1:N) {
+  Y <- beta_0 + beta_1*X + rnorm(n, 0, sigma)
+  mylm <- lm(Y ~ X)
+  storage_yint[i] <- coef(mylm)[1]
+  storage_slope[i] <- coef(mylm)[2]
+  storage_rmse[i] <- summary(mylm)$sigma
+  
+}
+
+layout(matrix(c(1,1,2,3), 2, 2, byrow = TRUE), widths = c(2,2), heights = c(3,3))
+
+Ystart <- 0 # Min Y possible
+Ystop <- 500 # Max Y possible
+Yrange <- Ystop - Ystart
+
+plot(Y ~ X, xlim = c(min(0, Xstart - 2), max(0, Xstop + 2)), 
+     ylim = c(Ystart, Ystop), pch = 16, col = "gray",
+     main = "Regression Lines from many Samples (gray lines) \n Plus Residual Standard Deviation Lines (green lines)",
+     sub = "Code and Graph Foundations by Brother Saunders")
+
+text(Xstart, Ystop, bquote(sigma == .(sigma)), pos = 1)
+text(Xstart, Ystop - .1 * Yrange, bquote(sum((x[i] - bar(x))^2, i == 1, n) == .(var(X) * (n - 1))), pos = 1)
+text(Xstart, Ystop - .25 * Yrange, bquote(sqrt(MSE) == .(mean(storage_rmse))), pos = 1)
+
+for (i in 1:N) {
+  abline(storage_yint[i], storage_slope[i], col = "darkgray")  
+}
+
+abline(beta_0, beta_1, col = "green", lwd = 3)
+abline(beta_0 + sigma, beta_1, col = "green", lwd = 2)
+abline(beta_0 - sigma, beta_1, col = "green", lwd = 2)
+abline(beta_0 + 2 * sigma, beta_1, col = "green", lwd = 1)
+abline(beta_0 - 2 * sigma, beta_1, col = "green", lwd = 1)
+abline(beta_0 + 3 * sigma, beta_1, col = "green", lwd = .5)
+abline(beta_0 - 3 * sigma, beta_1, col = "green", lwd = .5)
+
+par(mai = c(1, .6, .5, .01))
+
+  addnorm <- function(m, s, col = "firebrick") {
+    curve(dnorm(x, m, s), add = TRUE, col = col, lwd = 2)
+    lines(c(m, m), c(0, dnorm(m, m, s)), lwd = 2, col = col)
+    lines(rep(m - s, 2), c(0, dnorm(m - s, m, s)), lwd = 2, col = col)
+    lines(rep(m - 2 * s, 2), c(0, dnorm(m - 2 * s, m, s)), lwd = 2, col = col)
+    lines(rep(m - 3 * s,2), c(0, dnorm(m - 3 * s, m, s)), lwd = 2, col = col)
+    lines(rep(m + s, 2), c(0, dnorm(m + s, m, s)), lwd = 2, col = col)
+    lines(rep(m + 2 * s, 2), c(0, dnorm(m + 2 * s, m, s)), lwd = 2, col = col)
+    lines(rep(m + 3 * s,2), c(0, dnorm(m + 3 * s, m, s)), lwd = 2, col = col)
+    legend("topleft", legend = paste("Std. Error = ", round(s, 3)), cex = 0.7, bty = "n")
+    
+  }
+  
+
+h0 <- hist(storage_yint, 
+             col = "skyblue3", 
+             main = "Sampling Distribution\n Y-intercept",
+             xlab = expression(paste("Estimates of ", beta[0], " from each Sample")),
+             freq = FALSE, yaxt = 'n', ylab = "")
+  m0 <- mean(storage_yint)
+  s0 <- sd(storage_yint)
+  addnorm(m0, s0, col = "green")
+  
+h1 <- hist(storage_slope, 
+             col = "skyblue3", 
+             main = "Sampling Distribution\n Slope",
+             xlab = expression(paste("Estimates of ", beta[1], " from each Sample")),
+             freq = FALSE, yaxt = 'n', ylab = "")
+  m1 <- mean(storage_slope)
+  s1 <- sd(storage_slope)
+  addnorm(m1, s1, col = "green")
+
+```
+***Code and graph credits go to Brother Saunders, with slightly modified values by Devin for personal study and time efficiency***
+
+As the title indicates, this is what regression lines from many samples looks like when plotted. For each sample you get, there exists an exclusive regression for that sample. So when taking multiple samples, you get a multitude of regressions as you try to narrow down on what the possible true regression is. Consider it trial and error, or constantly attacking each dataset individually as a battle to win the war (finding the ultimate truth).
+
+For the y-intercept and slope specifically, the principle is practically the same. Each sample has its own regression which has its own y-intercept and slope values. We take these individual values and create a distribution of them to get a better idea of what the truth could be.
+
+As evident, we can see a normal distribution between the y-intercept and slope. This is based on the central limit theorem that with enough sample sizes, you will eventually start to see this Gaussian distribution. With that distribution, we can then invoke the "68 - 95 - 99.7" rule which states that 68% of the data lies within 1 standard deviation from the mean, 95% within 2, and 99.7% within 3. For our y-intercept and slope, their standard error (estimation of the deviation) is 4.873 and 0.072 respectively which means the slope is more tightly compact towards the mean while the y-intercept has more spread. 68% of the data is within the boundaries of 4.873 for the y-intercept and 0.072 for slope. To get 95 and 99.7%, add the amount of standard error twice or thrice.
+
+### P Values
+
+To get the probability value, we must first get the T value which is calculated in this manner:
+
+$$
+t = \frac{b_0 - \overbrace{0}^\text{hypothesis}}{s_{b_0}}
+$$
+where $b_0$ is the slope estimate subtracted by the hypothesis value, divided by the standard error of either the intercept or slope (this code showcases $S_{b_0}$ indicating standard error of the intercept).
+
+Why this works is because subtracting the hypothesis value from the estimate and dividing by the standard error gives the T value. The T value measures the size of the difference relative to the variation in the sample data. Put another way, T is simply the calculated difference represented in units of standard error. The greater the magnitude of T, the greater the evidence against the null hypothesis. This means there is greater evidence that there is a significant difference. The closer T is to 0, the more likely there isn't a significant difference. The P value then gives us the probability of getting such a value.
+
+To calculate the P value manually, do the following formula:
+
+$$
+Pr(>|t|) = 2 * pt(-abs(t), df)
+$$
+
+Let's unpack the code. The $pt$ function gives the probability cumulative density of the Student t-distribution (in layman's terms, p value). We multiply by 2 to get a double sided P value so if you want left tail only, remove the 2. For right tail, subtract 1 by the value of the pt. The degrees of freedom will be minus 2 by whatever the sample size since $b_0$ and $b_1$ are taken.
+
+Let's practice. Let's say my estimated slope value is 4.89764, my standard error 0.06315, sample size of 200, and a null hypothesis of 0 with a two sided test. To get the T value,
+
+$$
+T\text{ value =}\frac{(4.89764 - 0)}{0.06315} = \text{~ } 77.558
+$$
+
+Pretty big. As stated earlier, if the T value is big then there is a good chance the P value will be very small. Let's find out.
+
+$$
+Pr(>|t|) = 2 * pt(-abs(77.558), 198) = 3.902617e^{-150}
+$$
+
+As evident, very very small possibility so obviously we struck gold here so we would reject our null because we found something of such extremity that it can't be a coincidence. In R, super small numbers often get hard capped at $2e^{-16}$.
+
+### Confidence Intervals
+
+In statistics, skepticism is the norm and rightfully so. When you understand the reason behind sampling and the nature of reality, we are hardly ever right. In the words of Brother Saunders, ***"all models are wrong, but some are useful"***. So while we may be able to pinpoint a hard guess as to what we think the truth is, the reality is there are other noteworthy possibilities we should let people know about. This is where confidence intervals come into play.
+
+Since we used slope for our example in the last section, we will take a look at the confidence interval for the y-intercept. Essentially what we are doing is saying the population parameter for the true y-intercept will fall between this range of values. To calculate confidence interval for the y-intercept:
+
+$$
+b_0 \pm t^*_{n-2}\cdot s_{b_0}
+$$
+
+where we take the estimation for the y-intercept, plus or minus the critical value multiplied by the standard error of the y-intercept estimation. The critical value is the number of standard deviations that are needed to get 95% confidence interval from a t distribution with the degrees of freedom. You can manually calculate the critical value by $qt(0.975, df)$.
+
+Let's replace our variables with the following values assuming our $b_0$ is 13.97071, critical value of 1.972017, and $S_{b_0}$ of 0.06315.
+
+$$
+13.97071 \pm 1.972017 * 0.06315 = 14.095 \text{ & } 13.846
+$$
+
+14.095 is the upper limit and 13.846 is the lower. We are 95% confident the true value lies within this range with 13.97071 being a hard guess from the sample. Standard error is crucial in estimating many of these values because it is saying "what is the accuracy of the statistic estimated from several trials of sampling".
+
+##
+

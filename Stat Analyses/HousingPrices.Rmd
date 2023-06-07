@@ -1,0 +1,160 @@
+---
+title: "House Selling Prices"
+author: "Devin Harp"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document:
+    theme: cerulean
+    code_folding: hide
+---
+
+```{r load_library, include=FALSE}
+
+library(tidyverse)
+library(pander)
+library(ggthemes)
+library(scales)
+
+```
+
+```{r load_data, include=FALSE}
+
+train <- read.csv('../../Data/house_price/train.csv', header = TRUE, stringsAsFactors = TRUE)
+
+train <- train %>%
+  mutate(Alley = as.character(Alley),
+         Alley = replace_na(Alley, 'No Access'),
+         Alley = as.factor(Alley),
+         TotalSF = X1stFlrSF + X2ndFlrSF + TotalBsmtSF,
+         TotalSF = ifelse(TotalSF > 7000, 2500, TotalSF),
+         RichNbrhd = case_when(Neighborhood %in% c("StoneBr", "NridgHt", "Noridge") ~ 2,
+                               Neighborhood %in% c("MeadowV", "IDOTRR", "Edwards", "BrkSide", "BrDale", "Blueste", "OldTown", "Sawyer", "SWISU") ~ 0,
+                               TRUE ~ 1))
+
+# 0 = Poor, 1 = Middle class, 2 = Rich
+
+# Check for NAs
+# apply(train, 2, function(x) sum(is.na(x)))
+
+```
+
+The purpose of this analysis is to predict a house's selling price (Sales Price) with a model created from the sea of potential variables present. The goal is to get a high enough validated $R^2$ while maintaining interpretability of the model.
+
+## {.tabset .tabset-pills .tabset-fade}
+
+### Model & Validation
+
+Variables of interest after diagnosing a humongous pairs plot are those with separated square foot area, neighborhood, and overall quality given by a real estate agent.
+
+To start off, the separate variables dictating square footage of space for the property were combined to create a total and specific neighborhoods were separated in various levels of economic class (poor, middle, and rich). Lastly, we utilized a marketer's judgment on quality for each property as a useful predictor like how Brother Saunder's magic two groups was helpful for predicting final exam scores.
+
+Our model can be written as so:
+
+$$
+ Y_i = \overbrace{\beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{1i} X_{4i} + \beta_4 X_{1i} X_{3i}}^\text{HD Model} + \epsilon_i 
+$$
+
+```{r}
+
+set.seed(121)
+
+num_rows <- 1000 #1460 total
+keep <- sample(1:nrow(train), num_rows)
+
+mytrain <- train[keep, ] #Use this in the lm(..., data=mytrain)
+
+mytest <- train[-keep, ] #Use this in the predict(..., newdata=mytest)
+
+house.lm <- lm(SalePrice ~ TotalSF + TotalSF:RichNbrhd + OverallQual + TotalSF:OverallQual, data = mytrain)
+pander(summary(house.lm))
+
+b <- coef(house.lm)
+
+```
+
+Rich neighborhoods were originally significant but with the introductino of overall quality, the p value rose above the level of significance of 0.05. Keeping the slope interaction term however maintained its relevancy so accordingly which makes sense. 
+
+### Graphs
+
+Due to the nature of the HD model, many interactions exist and the following graphs attempt to better illustrate the possible combinations.
+
+The first graph is meant to give an overview of the data using colors and shapes to display the relations.
+For class, 0 stands for poor neighborhoods, 1 for middle class, and 2 for rich. Overall quality goes from the standard 1 to 10 rating. Interestingly, we don't see many rich neighborhood properties topping the total square footage, but being more middle ground but striking a higher price tag. We see a strong trend of a unified exponential growth overall in the data but when broken down by individual characteristics, it appears more linear.
+
+```{r}
+
+ggplot(mytrain, aes(x = TotalSF, y = SalePrice, color = as.factor(OverallQual), shape = as.factor(RichNbrhd))) +
+  geom_point(size = 2) +
+  scale_color_tableau('Color Blind') +
+  labs(x = 'Total Square Footage', y = 'Sale Price in USD', title = 'Predicting House Prices via HD Model', color = 'Overall Quality Rating', shape = 'Class') +
+  theme_tufte()
+
+```
+
+```{r message=FALSE, warning=FALSE}
+
+# For color mapping in next graph
+col <- as.character(hue_pal()(22)) %>% as_tibble()
+
+```
+
+The following graph emphasizes the interaction between Overall Quality and the neighborhood. The first number in the interaction is the quality ranking and the second is the neighborhood class (As a reminder, 0 = Poor, 1 = Middle, 2 = Rich). A few of the dozen possible relationships were selected for interpretation via regression. What is interesting is that rich neighborhoods never go below a quality ranking of 6 and middle class neighborhood never go below 3. Poorer neighborhoods exhibit all possible quality rankings.
+
+```{r}
+
+ggplot(mytrain, aes(x = TotalSF, y = SalePrice, color = interaction(OverallQual, RichNbrhd))) +
+  geom_point(size = 2) +
+  stat_function(fun = function(TotalSF, OverallQual = 10, RichNbrhd = 2) b[1] + b[2] * TotalSF + b[3] * OverallQual + b[4] * TotalSF * RichNbrhd + b[5] * TotalSF * OverallQual, color = col$value[21]) + 
+  stat_function(fun = function(TotalSF, OverallQual = 8, RichNbrhd = 1) b[1] + b[2] * TotalSF + b[3] * OverallQual + b[4] * TotalSF * RichNbrhd + b[5] * TotalSF * OverallQual, color = col$value[16]) + 
+  stat_function(fun = function(TotalSF, OverallQual = 5, RichNbrhd = 1) b[1] + b[2] * TotalSF + b[3] * OverallQual + b[4] * TotalSF * RichNbrhd + b[5] * TotalSF * OverallQual, color = col$value[13]) + 
+  stat_function(fun = function(TotalSF, OverallQual = 10, RichNbrhd = 0) b[1] + b[2] * TotalSF + b[3] * OverallQual + b[4] * TotalSF * RichNbrhd + b[5] * TotalSF * OverallQual, color = col$value[21]) + 
+  stat_function(fun = function(TotalSF, OverallQual = 5, RichNbrhd = 0) b[1] + b[2] * TotalSF + b[3] * OverallQual + b[4] * TotalSF * RichNbrhd + b[5] * TotalSF * OverallQual, color = col$value[5]) + 
+  stat_function(fun = function(TotalSF, OverallQual = 2, RichNbrhd = 0) b[1] + b[2] * TotalSF + b[3] * OverallQual + b[4] * TotalSF * RichNbrhd + b[5] * TotalSF * OverallQual, color = col$value[2]) + 
+  labs(x = 'Total Square Footage', y = 'Sale Price in USD', title = 'Predicting House Prices via HD Model', color = 'Interaction', shape = 'Class') +
+  theme_tufte()
+
+```
+
+### Interpretation & Validation
+
+*Statistics summary table below for reference.*
+
+```{r}
+
+pander(summary(house.lm))
+
+```
+
+When the total square footage, overall quality are at 0 in a poor neighborhood, we have a mean sale price of $130,719. Perfectly reasonable for a small piece of cardboard in California. In all seriousness, that's not exactly meaningful or sensible no matter how bad the housing market is right now.
+
+The value of a home is heavily determined by the combination of the total square footage and the interaction of the neighborhood its in and interaction with the overall quality. TotalSF gains \$12.96 per square foot in value for each extra point achieved in the OverallQual variable and \$7.41 for each a gain in neighborhood wealth class. If the overall quality is 0 and its in a poor neighborhood, the home depreciates by roughly \$38.84. So for a home with an overall quality ranking of 10 and in a rich neighborhood with a total square footage of 6000, we ought to see a sales price of \$635,724.40. On the previous graph showing some of the relationships, this roughly matches what we see. For a house with a quality ranking of 2 in a poor neighborhood with a total square footage of, let's say 1000, we get a sales price of \$92,131.68. Perfect for a recent college graduate right? Don't mind the mice or people breaking in.
+
+```{r}
+
+yht <- predict(house.lm, newdata = mytest)
+
+ybar <- mean(mytest$SalePrice)
+
+SSTO <- sum( (mytest$SalePrice - ybar)^2 )
+
+SSE <- sum( (mytest$SalePrice - yht)^2 )
+
+rsq <- 1 - SSE/SSTO
+
+n <- length(mytest$SalePrice)
+
+pm <- length(coef(house.lm))
+
+rsq2 <- 1 - (n - 1)/(n - pm) * SSE/SSTO
+ 
+my_output_table2 <- data.frame(Model = "My Model", `Original R2` = summary(house.lm)$r.squared, `Orig. Adj. R-squared` = summary(house.lm)$adj.r.squared, `Validation R-squared` = rsq, `Validation Adj. R^2` = rsq2)
+
+colnames(my_output_table2) <- c("Model", "Original $R^2$", "Original Adj. $R^2$", "Validation $R^2$", "Validation Adj. $R^2$")
+
+knitr::kable(my_output_table2, escape = TRUE, digits = 4)
+
+```
+
+The model maintains a respectable R2 and adjusted R2 throughout the validation process. 86% of the variance in the data can be explained by my model which is decent for a real world application.
+
+##

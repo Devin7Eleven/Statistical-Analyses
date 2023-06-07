@@ -1,0 +1,110 @@
+---
+title: "Predicting the Weather"
+output: 
+  html_document:
+    theme: cerulean
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+
+library(tidyverse)
+library(ggthemes)
+library(DT)
+library(pander)
+
+data <- read.csv('../../Data/lm_1.csv')
+
+bob.lm <- lm(TempHi ~ Difference, data = data)
+
+pred <- predict(bob.lm, data.frame(Difference = -2), interval = 'prediction')
+
+```
+
+Click on tabs below for related information.
+
+## {.tabset .tabset-pills .tabset-fade}
+
+### Weather Prediction Graphic
+
+Simultaneously beautiful and ugly plot that would make a statistician cry with how spread out the data is. See that slope there? Yeah, see that data too? Really puts the emphasis of 'best' in 'line of best fit'. Get ready for a really exciting analysis.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(data) +
+  aes(x = Difference, y = TempHi) +
+  geom_point(color = 'red', alpha = 0.3) +
+    geom_segment(aes(x = -2, xend = -2, y = pred[2], yend = pred[3]), inherit.aes = FALSE, lwd = 3, color = "hotpink", alpha = 0.5) + 
+  geom_smooth(method = 'lm', se = FALSE, color = 'red') +
+  geom_point(x = -2, y = 77.07497, size = 3) +
+  geom_text(x = 5, y = 76.3, label = "Predicted High Temp for Monday", size = 3) +
+  scale_y_continuous(breaks = seq(60, 90, 2)) +
+  scale_x_continuous(breaks = seq(-20, 30, 5)) +
+  labs(x = 'Difference in Temperature of Two Days Prior', y = 'High Temperature in Fahrenheit', title = 'High Temperatures and Their Change', subtitle = 'Rexburg, ID September 2022') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        panel.grid.major = element_line(color = 'lightgray'),
+        axis.title.x = element_text(vjust = -1),
+        axis.title.y = element_text(vjust = 2))
+
+```
+
+### The Data
+
+The data was gathered from this [website](https://www.timeanddate.com/weather/@5605242/historic?month=1&year=2022) which cataloged the history of temperature of Rexburg far back as 2012. In order to predict the weather, I used a linear regression model which requires an explanatory variable (my x) to predict the response variable (my y). My x value used for prediction was obtained by taking the highest temperatures at 12pm each day (from the 12th to 17th) in September ranging from 2022 back to 2018 and subtracting the lower end of the temperature around the same time two days prior. This allowed me to get a change in temperature that gave, theoretically, a rational range of possibilities to make a estimation for what Monday could be. However, the issue with this is that some days have been unusually hot in 2020 and this past week, as of September 2022, has been cloudier with some rain coming in that can skew the data.
+
+This datatable shows the whole values used for the linear regression.
+
+```{r}
+
+datatable(data, options = list(lengthMenu = c(10, 20, 30)))
+
+```
+
+### Statistics & Analysis (Nerd Talk)
+
+The goal of this analysis is to prove that Devin can be a better predictor of weather than the most well paid weatherman and that he is worthy of earning more than $11 an hour at his school job. This will be accomplished by almost successfully predicting the weather for Monday, September 19th 2022 by using prior data no later than Saturday, September 17th 2022. Since we are attempting to predict the weather, we can use a linear regression model by taking prior data of weather reports and using them to get a prediction for Monday.
+
+This mathematical equation is the 'true line' for the data which is unknown to us. However, we can understand how it's calculated where $Y_i$ represents the data that gets created, $\beta_0$ is our y-intercept, $\beta_1$ is our slope, $X_i$ is the explanatory value (our difference in temperature), and $\epsilon_i$ is our error term that allows variability in the data within the regulated confines.
+
+$$
+  \underbrace{Y_i}_\text{True High Temp} = \overbrace{\beta_0}^\text{y-int} + \overbrace{\beta_1}^\text{slope} \underbrace{X_i}_\text{Difference in Temp} + \epsilon_i \quad \text{where} \ \epsilon_i \sim N(0, \sigma^2)
+$$
+
+Our linear regression summary statistics is below with significant values for intercept but not slope. The positive slope signifies that for every increase in the difference in temperature we see, the change in the average high temp goes up by 0.05674. However, because our slope isn't significant, the difference in temp is in no way a major contributor to the estimation of high temps, i.e. there appears to be no law governing a relationship between high temp and difference in high and low.
+
+```{r}
+
+summary(bob.lm) %>%
+  pander()
+
+```
+
+To determine if our regression fits the necessary assumptions, three diagnostic plots were constructed. All three are questionable to an extent. The first fitted plot doesn't show too much of a pattern but has some outliers. The second shows left skew bending early on before leveling out along the line which may be due to the irregular temperatures from 2020. The third however appears to have a rainbow pattern if you look closely enough.
+
+```{r}
+
+par(mfrow = c(1, 3))
+plot(bob.lm, which = 1:2)
+plot(bob.lm$residuals)
+
+```
+
+The bottom formula constructs the estimation line where instead of the 'true line' it's a statistical parameter (substituting beta for lower b). Again, we see that for every increase in difference in temperature along the X axis, we see an increase of 0.5377 in the average Y value (predicted high temp).
+
+$$
+  \underbrace{\hat{Y}_i}_\text{Mean High Temp} = \overbrace{b_0}^\text{est. y-int} + \overbrace{b_1}^\text{est. slope} \underbrace{X_i}_\text{Difference in Temp}
+$$
+
+When we substitute these symbols with the actual numbers, we get the bottom equation.
+
+77.18845 + 0.05674 * -2 = 77.07 Fahrenheit
+
+Based on the data collected, in using the mean of high temp and it's difference, the predicted value was 77.07.
+
+##

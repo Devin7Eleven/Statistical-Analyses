@@ -1,0 +1,247 @@
+---
+title: "2014 Chevy Cruze LT Prices"
+author: 'Devin Harp'
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+    self_contained: true
+    default_style: "light"
+    downcute_theme: "default"
+    code_folding: hide
+---
+
+
+```{r setup, include=FALSE}
+## Global options
+knitr::opts_chunk$set(cache = TRUE)
+```
+
+```{r libraries, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(rmdformats)
+library(ggthemes)
+library(car)
+library(DT)
+library(plotly)
+library(pander)
+
+```
+
+
+![](../Pictures/CruzeLT.jpg)
+
+
+## Intro
+
+In America, owning a car is more of a necessity rather than a luxury and because of that, it is often an investment many of us have to make. The usual trend with car prices is that slight mileage often drives their initial costs down substantially compared to brand new makes before leveling out in higher mileage. Is this still true in today's chaotic economy? What is the perfect mileage to also sell a car of this caliber to get the most back in return? Let's find out!
+
+We will be using a linear regression model to analyze the relationship between mileage and price and to also predict the value at the mileage I plan sell at. If the usual trend is apparent, we may need to curve our line to better fit the model for a better prediction. For the purpose of this regression, we will be using my own vehicle make and model, the 2014 Chevy Cruze LT, as the vehicle of interest to analyze.
+
+## The Data
+
+The data was gathered from [Carfax]('https://www.carfax.com/Used-Chevrolet-Cruze_w113') with special attention given to recording information from 2014 Lt and LT2 models of the Cruze. The first row is my own personal vehicle purchased back in 2017 followed by current 2022 offers.
+
+```{r message=FALSE, warning=FALSE}
+
+bob <- read_csv('../../Data/CruzePrices.csv')
+
+my_car <- bob[1, ]
+
+```
+
+```{r message=FALSE, warning=FALSE}
+
+datatable(bob, options = list(autoWidth = TRUE, lengthMenu = c(10, 20, 30), columnDefs = list(list(width = '50%', targets = c(1, 2))))) %>%
+  formatCurrency('Price', digits = 0) %>%
+  formatRound('Mileage', digits = 0)
+  
+```
+
+## Graphic and Numerical Summaries
+
+```{r message=FALSE, warning=FALSE}
+
+car.lm <- lm(Price ~ Mileage, data = bob)
+
+```
+
+Our first graph below showcases the detail as is without any transformation or regression line added. If one looks closely, one can see a very slight curvature in the data. My car, the dot in yellow, represents the specifications of when it was bought back in 2017 ($12,000 for 18,000 mileage) compared to the rest of its siblings in 2022. Evidently, we got a good deal!
+
+```{r message=FALSE, warning=FALSE}
+
+ggplot(bob, aes(x = Mileage, y = Price)) +
+  geom_point(color = 'darkgray') +
+  geom_point(data = my_car, aes(x = Mileage, y = Price), color = 'gold', size = 2) +
+  geom_text(x = 18000, y = 11300, label = 'My Car') +
+  labs(title = '2014 Chevy Cruze LT Depreciation', caption = 'Hover over data points for individual specifications') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Let's try plotting a simple regression line to see how well the data follows a plain linear model.
+
+```{r}
+
+ggplot(bob, aes(x = Mileage, y = Price)) +
+  geom_point(color = 'darkgray') +
+  geom_point(data = my_car, aes(x = Mileage, y = Price), color = 'gold', size = 2) +
+  geom_smooth(method = 'lm', se = FALSE, formula = y ~ x, linetype = 'dashed', color = 'black', data = ) +
+  geom_text(x = 18000, y = 11300, label = 'My Car') +
+  labs(title = '2014 Chevy Cruze LT Depreciation') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Below is a statistical summary of what we see. Both our intercept and mileage were significant (comes to no surprise) and our linear regression line is able to explain 65.1% of what we see going on in the data. The individual cars also has an average deviation of around $1,684 from our predictions.
+
+```{r message=FALSE, warning=FALSE}
+
+summary(car.lm) %>%
+  pander()
+
+```
+
+Diagnostic plots to showcase how a very *simple* linear regression fairs.
+
+```{r}
+
+par(mfrow = c(1,3))
+plot(car.lm, which = 1:2)
+plot(car.lm$residuals)
+
+```
+
+For variance, we see some troubling bending but this is most likely due to how the data was collected (several data points in the middle of price range and ends rather than the start). While it is possible to see some pattern, I do not believe it to be enough to violate the assumptions.
+
+Hmm, not bad but perhaps we can fit the data even better to make up for some of that slight curvature we see. After all, cars should depreciate in a decay form right? Using the Box Cox lambda whatchamacallit, we can accurately determine the best transformation for our data.
+
+```{r}
+
+boxCox(car.lm)
+
+car.lm.t <- lm(log(Price) ~ Mileage, data = bob)
+
+b <- coef(car.lm.t)
+
+```
+
+Oh wow! The best estimation is very close to 0 which means we cann do a simple log transformation on our 'Price' variable. Let's go perform this transformation and see if it causes any significant change!
+
+```{r}
+
+ggplot(bob, aes(x = Mileage, y = Price)) +
+  geom_point(color = 'darkgray') +
+  geom_point(data = my_car, aes(x = Mileage, y = Price), color = 'gold', size = 2) +
+  stat_function(fun = function(x) exp(b[1] + b[2] * x), linetype = "dashed") +
+  geom_text(x = 18000, y = 11300, label = 'My Car') +
+  labs(title = '2014 Chevy Cruze LT Depreciation') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Look how beautiful that is! It's like seeing the second coming which we desperately need these days. Doing a log effectively shrinks the bigger numbers down which we can then use to help create a better fit line.
+
+```{r}
+
+summary(car.lm.t) %>%
+  pander()
+
+```
+
+Whats even cooler is that our R squared went from a 65.1% to a 71.35% which should count for something right? Our residual standard error has also significantly decreased from 1,684 to 0.134 which is always welcome. Doing a log transformation on the regression model has improved it on all accounts.
+
+Finally, let's predict the value of my car if I plan to sell it at around a mileage reading of 80,000 (as a placeholder).
+
+```{r}
+
+pred <- exp(predict(car.lm.t, data.frame(Mileage = 80000), interval = 'prediction'))
+
+ggplot(bob, aes(x = Mileage, y = Price)) +
+  geom_point(color = 'darkgray') +
+  geom_point(data = my_car, aes(x = Mileage, y = Price), color = 'gold', size = 2) +
+  geom_segment(aes(x = 80000, xend = 80000, y = pred[2], yend = pred[3]), lwd = 2, color = "gray", alpha = 0.02) + 
+  geom_point(x = 80000, y = pred[1], color = 'black', size = 2) +
+  stat_function(fun = function(x) exp(b[1] + b[2] * x), linetype = "dashed") +
+  geom_text(x = 18000, y = 11300, label = 'My Car') +
+  geom_text(x = 110000, y = 12500, label = 'Estimated Sell Value') +
+  labs(title = '2014 Chevy Cruze LT Depreciation') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+At a mileage of 80,000 I should expect to be able to sell my car for ~$12,000 which is represented by the black dot on the fitted line. The lighter gray vertical bar represents the range of the possible predicated values our prediction could have fall in. If you look at the graph though, there is more data points that are above the regression line around at that mileage rather than below. Theoretically, I could possible sell my car for even more! More specifically...
+
+```{r}
+
+pred %>%
+  pander()
+
+```
+
+The prediction value on the fitted line is \$12,006 but I could go as high as \$15,683.
+
+## Analysis
+
+Our primary goal was to find out if mileage would have any effect on price. More specifically, we would be following a model to this extent.
+
+$$
+  \underbrace{Y_i}_\text{Actual Car Price} = \overbrace{\beta_0}^\text{Price At 0 Miles} + \overbrace{\beta_1}^\text{Depreciation Rate} \underbrace{X_i}_\text{Mileage} + \epsilon_i \quad \text{where} \ \epsilon_i \sim N(0, \sigma^2)
+$$
+
+Because the above model represents the 'true' relationship of the entire population of 2014 Chevy Cruze LTs and we were stuck with only gathering samples from one website, the best we can do is an estimation which follows this model.
+
+$$
+  \underbrace{\hat{Y}_i}_\text{Estimated Price} = \overbrace{b_0}^\text{Est. Price At 0 Miles} + \overbrace{b_1}^\text{Est. Depreciation Rate} \underbrace{X_i}_\text{Mileage}
+$$
+
+As always following the status quo, our level of significance is 0.05. Our focus is on the slope, not the intercept so only one hypothesis will be taken into consideration. Since this is involving car mileage and price, we are for certain to find a relationship which makes our hypothesis a little redundant but necessary anyway.
+
+$$
+\left.\begin{array}{ll}
+H_0: \beta_1 = 0 \\  
+H_a: \beta_1 \neq 0
+\end{array}
+\right\} \ \text{Slope Hypotheses}
+$$
+Interpreted as: 'If our slope is 0, then there isn't a relationship between price and mileage and we cannot accurately predict price if given mileage'. The opposite is true if we do have a significant p value.
+
+Because we did a transformation of our data, our original model went from this (in thousands of miles):
+
+$$
+  \widehat{Y}_i' = 9.758 - 4.555e^6 X_i
+$$
+
+(performing basic algebra on the equation)
+$$
+  \log({\widehat{Y}_i}) = 9.758 - 4.555e^6 X_i
+$$
+
+to this:
+$$
+  \widehat{Y}_i = exp(9.758 - 4.555e^6 X_i)
+$$
+
+Let's take a peak at our assumption plots.
+
+```{r message=FALSE, warning=FALSE}
+
+par(mfrow = c(1, 3))
+plot(car.lm.t, which = 1:2)
+plot(car.lm.t$residuals)
+
+```
+
+The $-4.555e^6 X_i$ indicates slope so when coupled with the exp removing the log, we can get a beautiful curve that gives us our rate of decay. If we do *exp(-4.555e-06 * 10000)* we get 0.9954554 and then subtract 1 (the whole) to get our percentage lost which becomes 0.0445282. In other words, I lose about 4.45% of value for every 10,000 miles I drive. Not bad.
+
+The residuals vs fitted plot has no apparent pattern and has noticeable concentration of data points towards the later end of the values rather than earlier (which makes sense given the age of the car). The middle plot for normality shows a slight left skew but its not a substantial amount that could cause any concern. The third plot finally is beautifully chaotic as well indicating the error terms have independence and do not follow any hidden factor not explained.
+
+## Conclusion
+
+With our adjusted model and fulfilled assumptions, we can say with confidence that the alternative hypothesis is true that there is a relationship between price and mileage (which is a very uninteresting hypothesis given how much of a basic truth it already is). However, it is nice to see that the trend of a decay model for car depreciation to remain true and how much it goes for my car. So to summarize..
+
+The current car market likes to follow expectations like an angsty teenage girl attending a church school her freshman year, and I got a sweet deal on my car and can expect to sell it for a decent price later on around 80,000 mileage.

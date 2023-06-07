@@ -1,0 +1,207 @@
+---
+title: "Consulting Project - GPUs MSRP and Power Consumption"
+author: "Devin Harp"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document:
+    theme: cerulean
+    code_folding: hide
+---
+
+```{r load_library, include=FALSE}
+# Use this R-Chunk to load your libraries!
+library(mosaic)
+library(tidyverse)
+library(DT)
+library(car)
+library(ggthemes)
+library(pander)
+
+```
+
+```{r load_data, include=FALSE}
+
+bob <- read.csv('../../Data/gpu.csv', stringsAsFactors = TRUE)
+bob <- bob[, -18:-20]
+bob_data <- bob %>%
+  mutate(releaseDate = as.character(releaseDate)) %>%
+  mutate(releaseDate = as.Date(releaseDate, format = "%m/%d/%y")) %>%
+  mutate(releaseDate = format(releaseDate, "%b %d, %Y"))
+
+```
+
+## {.tabset .tabset-pills .tabset-fade}
+
+### Background
+
+![](../../Images/amdnvidiaintel.jpg)
+
+Computer technology is one of the fastest growing sectors in industry, each couple years bringing in at least something groundbreaking for those using components for productivity or entertainment. With recent times however, energy consumption has become a subject of concern due to worldwide inflation with the current energy crisis and the increasing power of these PC components. If someone is looking at to build a new PC, energy consumption and price should be of interest before seeking the most recent release.
+
+Specifically we will be looking at graphics cards, or other known as the GPU (Graphics Processing Unit) to see how they fare when it comes to price and energy efficiency. This component of PCs has been highly sought after by gamers, crypto miners, and scalpers due to their utility and scarcity. There exists two prominent GPU manufactures, NVIDIA and AMD (with Intel joining later on in 2022), being the only choices people have when it comes to GPU selection. With those two prominent companies, each one has third parties making AIB models based on their architect that offer slightly better cooling and performance increase but should be close enough to ignore when considering most are only 3-5% increase in performance which is within margin of error for typical users.
+
+### The Data
+
+The data was collected from various websites such as [TomsHardware](https://www.tomshardware.com/), [Guru3D](https://www.guru3d.com/), and [TechPowerUp](https://www.techpowerup.com/).
+
+***Disclaimer :***
+
+*Since the data was collected from various websites rather than a homogeneous source, error in testing could be possible due to different rig setups and environmental factors that can offer marginal difference in performance metrics*
+
+*Much care was taken to ensure the specifications retrieved were only the reference models (the initial versions) rather than aftermarket modifications. Slight margin of error may exist due to ambiguity in testing from the data sources*
+
+*The AMD 7900xt and 7900xtx are due to release Tuesday, December 13th at the time of writing. Because some of the data was retrieved before official benchmarks were released, the noise level is estimated upon closely related hardware. All other specifications are official from AMD*
+
+*Only GPUs from the past half decade had been included due to scarce detail on earlier GPUs. The data is thus limited to the 1000, 2000, 3000, and recent 4000 series from Nvidia, 500, 5000, 6000, and 7000 from AMD, and Intel's Arc series*
+
+Data Definitions
+
+* Manufacturer = Company that made the GPU
+
+* Product Name = Name of the GPU
+
+* Release Date = Full date of release of the GPU
+
+* Release Month, Day, Year = The release of the GPU on that specific time
+
+* MSRP = Manufacturer's suggested retail price, the default price listing of the GPU in US dollars
+
+* Power Use = Max power consumption during load in watts
+
+* Price per Watt = Price divided by max power consumption
+
+* Noise Level = Amount of noise a GPU makes under load in db
+
+* Memory Size = Size of VRAM (video random access memory) on the GPU
+
+* Memory Bus Width = Memory bandwidth. Controls the number of memory chips that can be used on the card and sent to the CPU
+
+* GPU Clock = Stock overclock settings in megahertz that the card can go up to in order to increase performance at the cost of higher power and heat, determines speed of cores in the GPU's chip
+
+* Memory Clock = Speed of the VRAM on the GPU in megahertz as opposed to the GPU clock which is the speed of cores in the chip. Has less influence on performance compared to GPU clock speed.
+
+* Unified Shaders = The amount of shaders switching between pixel and vertex shader mode. Increases efficiency of rendering.
+
+* TMU = Texture mapping units. Amount of units capable of rotating, resizing, and distorting a bitmap image to be placed onto an arbitrary plane of a given 3D model as a texture
+
+* ROP = Render output unit. Involved in rasterization (raster operations pipeline), or the process by which pixel piplines take pixel and texel information and process it into a final pixel or depth value
+
+* BUS = Data bandwidth. Responsible for the transfer of information between the memory and the chipset. The wider it is, the more data that can be allowed to pass through in the same amount of time
+
+* Memory Type = VRAM type. Most modern GPUs utilize a type of synchronous graphics RAM (SGRAM)in the form of GDDR4, 5, or 6 which dictates how much capacity and bandwidth is allowed to be transmitted
+
+```{r}
+
+datatable(bob_data, options = list(autoWidth = TRUE, lengthMenu = c(10, 20, 30)))
+
+```
+
+### Pairs Plot
+
+Pairs plot showcasing all variable relationships. Specifically for MSRP we see a strong relationship with power use, possibly memory size, tmu, and rop. Since we are most interested in power use in order to save money, we will use this as our variable.
+
+```{r message=FALSE, warning=FALSE, fig.height = 10, fig.width = 10}
+
+pairs(bob, col = bob$manufacturer, pch = 16, cex = 0.5)
+
+```
+
+### Analysis
+
+To begin the analysis, lets plot the points as they are against the respective axes.
+
+```{r message=FALSE, warning=FALSE}
+
+ggplot(bob, aes(x = powerUse, y = msrp, col = manufacturer)) +
+  geom_point(size = 2) +
+  annotate('text', x = 244, y = 2450, label = 'Titan RTX') +
+  annotate('text', x = 452, y = 1670, label = 'GeForce 4090') +
+  annotate('text', x = 397, y = 2100, label = 'GeForce 3090 Ti') +
+  scale_color_manual(values = c('red', 'blue', 'green')) +
+  labs(x = 'Power Usage in Watts', y = 'MSRP in USD', title = 'MSRP vs Power Usage & GPU Manufacturer', col = 'Manufacturer') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+As evident in the graphic, we see an obvious trend of increasing price of GPU as power usage increases. NVIDIA has been particularly known for massive power consumption in recent times and we can see this as NVIDIA goes well beyond AMD's 330 watt usage. The Titan RTX, GeForce 3090 Ti, and 4090 have been labeled, being the most extreme points, as they may be a cause of concern later on. Reviews of AMD prove true here, being more consistent with lower power usage than NVIDIA who is their main competitor. While AMD also has what seems to be instances of spikes in power usage, they remain still on the lower end of instances than their rival. Intel, while only having three GPUs, impresses in cost and power usage, being below both NVIDIA and AMD.
+
+For our model we will be using the following formula with the following alpha level:
+
+$$
+\underbrace{Y_i}_{\text{MSRP}} = \overbrace{\beta_0 + \beta_1 \underbrace{X_{i1}}_{\text{Power Use}}}^{\text{AMD GPUs}} + \overbrace{\beta_2 \underbrace{X_{i2}}_{\text{1 if Intel, 2 if NVIDIA}}}^{\text{Intel/NVIDIA GPUs}} + \epsilon_i
+$$
+
+$$
+\alpha = 0.05
+$$
+
+If we look at the original graph, we could probably fit a linear regression line but let's take a look at the initial statistics and then look into a Box-Cox plot to see if there is any adjustments we can look into.
+
+```{r}
+
+gpu.lm <- lm(msrp ~ powerUse + manufacturer, data = bob)
+pander(summary(gpu.lm))
+
+```
+
+We shouldn't expect Intel to have any significance with only three GPUs that have the same power usage but NVIDIA is worth looking into. As stated before, let's look into a box cox before moving on.
+
+```{r message=FALSE, warning=FALSE}
+
+boxCox(gpu.lm)
+
+```
+
+With a recommended lambda value of 0, we can do a log transform which may fix the bend we see in the original graph. We will then fit a line afterwards.
+
+```{r message=FALSE, warning=FALSE}
+
+gpu.lm.t <- lm(log(msrp) ~ powerUse + manufacturer, data = bob)
+b <- coef(gpu.lm.t)
+pander(summary(gpu.lm.t))
+
+```
+
+Wow! What a jump in p value for intercept! Nvidia's line also slightly improved. Even better is that our multiple $R^2$ went from 0.6847 to a whopping 0.8419. In order to maintain our explanation power, it would best leave the model as is now and look at the new visualization.
+
+```{r}
+
+ggplot(bob, aes(x = powerUse, y = msrp, col = manufacturer)) +
+  geom_point(size = 2) +
+  annotate('text', x = 244, y = 2620, label = 'Titan RTX') +
+  annotate('text', x = 452, y = 1670, label = 'GeForce 4090') +
+  annotate('text', x = 395, y = 2100, label = 'GeForce 3090 Ti') +
+  stat_function(fun = function(x) exp(b[1] + b[2] * x), color = 'red', linetype = 'dashed') +
+  stat_function(fun = function(x) exp((b[1] + b[3]) + b[2] * x), color = 'blue', linetype = 'dashed') +
+  stat_function(fun = function(x) exp((b[1] + b[4]) + b[2] * x), color = 'green', linetype = 'dashed') +
+  scale_color_manual(values = c('red', 'blue', 'green')) +
+  labs(x = 'Power Usage in Watts', y = 'MSRP in USD', title = 'MSRP vs Power Usage & GPU Manufacturer', col = 'Manufacturer') +
+  theme_tufte() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Beautiful. With the lines fitting the data, we see an exponential increase in price with increase in wattage use. This is in no doubt due to the newer generations of cards that have seen a spike in power use and also an issue with inflation. However, it is important to double check our assumptions to make sure this study is creddible enough.
+
+### Interpretation
+
+```{r}
+
+par(mfrow = c(1, 3))
+plot(gpu.lm.t, which = 1:2)
+plot(gpu.lm.t$residuals)
+
+```
+
+The 1st graph checks for linearity and variance assumptions. The 2nd checks for normality, and the 3rd checks for independence.
+
+These diagnostic plots do show some troubling problems but with situational circumstance, they shouldn't be as problematic. For example, we see point 5 in the first graph probably heavily driving the pattern downward which creates the illusion of linearity being compromised. This point 5 is the GeForce 4090, with points 15 and 24 being the Titan RTX and 3090 Ti respectively. This makes sense since this was the beginning of NVIDIA's descent into power hunger and high prices, where major customer backlash ensued. We could easily remove these points and get a better result from our regression but it would be worthwhile to keep them in there to attest to how absurd these GPUs were.
+
+For normality, we see that the same GPUs aforementioned are present, leading the tail towards an almost right skew. Despite that, the impact isn't severe enough or meaningful in our case to warrant a cease and desist.
+
+Finally, our residuals vs order plot doesn't show any recognizable pattern which indicates independence of the error terms. All together, it would be justifiable to say nothing severe was compromised and that the issue of linearity was solved by a log transformation of our regression.
+
+In the end, it would make sense that the more power draw a GPU has, the higher its price tag would be but the exponential increase shows that something more is afoot. The issue with GPUs is that too many factors come into play that can influence price and also be a factor in what would be the better option such as tmu, rop, AIB models, environment you plan to use the PC in, acoustics of your home, and more. To keep the analysis simple, a simpler model was utilized that allowed our regression to explain the data fairly well. As such, for me personally it would be wise to consider Intel's offering or at least AMD's as NVIDIA has shown to be heading towards an extreme route.
+
+##

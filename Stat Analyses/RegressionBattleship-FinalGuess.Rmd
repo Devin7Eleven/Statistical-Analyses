@@ -1,0 +1,66 @@
+---
+title: "Regression Battleship - Final Guess"
+author: "Devin Harp"
+output: 
+  html_document:
+    theme: cerulean
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r message=FALSE, warning=FALSE}
+# Load any libraries you need here:
+library(tidyverse)
+
+# Read in the rbdata here:
+rbdata <- read.csv("../../Data/saunders_Fall22_rbdata.csv", header = TRUE)
+```
+
+## The Model of your Guess
+
+<!-- Enter your guessed model in the math notation below. -->
+
+$$
+  Y_i = \beta_0 + \beta_1 X_4^2 + \beta_3 X_4^3 + \beta_4 X_{10} + \beta_5 X_4^2 X_{10} + \beta_6 X_4^3 X_{10} + \epsilon_i
+$$
+
+## The lm(...) of your Guess
+
+```{r}
+## Input your lm(Y ~ ... ,data=rbdata)
+final.lm <- lm(y ~ x4 + I(x4^2) + I(x4^3) + x10 + x4:x10 + I(x4^2):x10 + I(x4^3):x10, data=rbdata) #replace the "1" with your model
+```
+
+```{r, comment=NA}
+################################################################
+#Don't edit this part:
+summary(final.lm)$coefficients
+```
+
+
+## The Plot of your Guess
+
+```{r}
+# Plot your guess at the model here:
+# Remember, your guess only counts for credit if you correctly plot it in a single 2D scatterplot.
+b <- coef(final.lm)
+
+plot(y ~ x4, col = c('red', 'blue')[as.factor(x10)], pch = 18, cex.main = 1, data = rbdata)
+legend('topleft', legend = c('Baseline (x10 == 0)', 'Changed-line (x10 == 1)'), bty = 'n', lty = 1, col = c('red', 'blue'), cex = 0.8)
+curve(b[1] + b[2]*x + b[3]*x^2 + b[4]*x^3, col = 'red', lwd = 2, add = TRUE)
+curve((b[1] + b[5]) + (b[2] + b[6])*x + (b[3] + b[7])*x^2 + (b[4] + b[8])*x^3, col = 'blue', lwd = 2, add = TRUE)
+```
+
+
+
+
+
+
+ 
+
+ 
+
+ 
+
+ 

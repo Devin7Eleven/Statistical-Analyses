@@ -1,0 +1,150 @@
+---
+title: "Simple Linear Regression"
+output: 
+  html_document:
+    theme: cerulean
+    code_folding: hide
+---
+
+```{r, message=FALSE, warning=FALSE}
+# Load your libraries
+library(car)
+library(tidyverse)
+library(DT)
+library(pander)
+library(mosaic)
+library(readr)
+
+ivy <- read_csv("../../Data/ivyleague.csv")
+
+# Load your data after saving a csv file in your Data folder.
+# You can use either 
+#   someName <- read.csv("../Data/YourDataFileName.csv", header=TRUE)
+# or
+#   library(readr)
+#   someName <- read_csv("../Data/YourDataFileName.csv")
+
+# Don't forget to run "Session -> Set Working Directory -> To Source file location"
+```
+
+
+<!-- Directions
+
+Come up with a simple linear regression of your own creation. 
+
+* Write the Background and clearly state your question. Then collect data and perform the linear regression analysis in order to answer your question. Use the proper order of first, ask the question, then second, figure out the answer.
+
+* You should collect both the quantitative response variable and the quantitative explanatory variable yourself. This can be data you collect from 
+    - the internet (like weather data, Facebook data, or sports data) 
+    - your own experiment 
+    - your own observational study
+* However,     
+    - The data should not be a single pre-existing dataset. It must be something that you piece together yourself.
+
+* You need at least $n=3$ $(X,Y)$ pairs to perform the regression. However, your regression will only be useful if you can get around $n=10$ or more observations.
+
+-->
+
+
+### Background
+
+The Ivy League universities within the United States are a small collection of world reknowned colleges known for their academic excellence, admissions selectivity, and social elitism. The Ivy League consist of the following universities:
+
+- Brown University (Providence, Rhode Island)
+
+- Columbia University (New York City, New York)
+
+- Cornell University (Ithaca, New York)
+
+- Dartmouth College (Hanover, New Hampshire)
+
+- Harvard University (Cambridge, Massachusetts)
+
+- University of Pennsylvania (Philadelphia, Pennsylvania)
+
+- Princeton University (Princeton, New Jersey)
+
+- Yale University (New Haven, Connecticut)
+
+While originally small local colleges, these 8 institutions have quickly grown to become some of the most prestigious institutions of higher learning. Because of this, costs are expected to be higher in order to help maintain the standards one would expect from such an organization. Due to their elite status in American society and in the world, many famous celebrities and figures contribute heavily to these institutions to fund the next generation of intellects and offset some of the costs. However, does a higher endowment (donations made to the college for facility use) necessarily mean a lower tuition for students? Is there a relationship between private donations and tuition? A linear regression test will be utilized to offer insight.
+
+More information regarding Ivy League schools can be found here: [Ivy League](https://en.wikipedia.org/wiki/Ivy_League)
+
+### The Data
+
+Data from the 8 Ivy League universities was collected, showcasing their respective full academic year tuition, undergraduate population, annual endowment **in billions**, and drop out percentage. The data is based upon 2020 - 2021 statistics.
+
+```{r}
+datatable(ivy, options = list(lengthMenu = 8))
+```
+
+It is worthwhile to note that our sample size is only 8, regression lines typically seeing more meaningful results and usefulness from when sizes are more than 10, 3 being the absolute bare minimum.
+
+### Hypothesis
+
+Our hypothesis is based on an attempt in finding the tuition cost of a full academic year based on endowment as shown below by the linear regression model.
+
+$$
+  \underbrace{Y_i}_\text{Tuition} = \overbrace{\beta_0}^\text{y-int} + \overbrace{\beta_1}^\text{slope} \underbrace{X_i}_\text{Endowment} + \epsilon_i \quad \text{where} \ \epsilon_i \sim N(0, \sigma^2)
+$$
+
+Where $Y_i$ is tuition and $X_i$ is the endowment donated to the university followed by the independent error terms. $\beta_1$ represents the slope of our model. If the slope is negative or positive, we should see a relationship between tuition and endowment donations. If our slope is zero, there is no relationship. This important aspect of our hypothesis is indicated below with a significance level of **0.05**
+
+$$
+\left.\begin{array}{ll}
+H_0: \beta_1 = 0 \\  
+H_a: \beta_1 \neq 0
+\end{array}
+\right\} \ \text{$\beta$ Representing Slope Hypothesis}
+$$
+
+$$
+  \alpha\text{ = 0.05}
+$$
+
+### Analysis
+
+The following test analyzes the regression of the two quantitative variables and their correlation. We see a p value for the Endowment being **p = 0.01549** allowing us to reject the null and claim that there exists a relationship between tuition and endowment.
+
+```{r}
+mylm <- lm(Tuition ~ I(Endowment/1000000000), data = ivy)
+summary(mylm) %>%
+  pander()
+
+ivy %>%
+  summarise(cor(Tuition, I(Endowment/1000000000), use= "complete.obs")) %>%
+  pander(caption = "Correlation of Slope")
+```
+
+The preceding data calculates a correlation of **-0.8069** indicating a fairly strong negative trend. However, the points are not grouped together tightly suggesting a weakness in the usefulness of our test. The slope for the regression line is **-144.1**, meaning that the average academic year tuition cost decreases by $144.10 for every 1 billion dollars (slope is the average change in y value for every increase in x).
+
+```{r}
+plot(Tuition ~ I(Endowment/1000000000), data = ivy, pch = 16, col = "steelblue", main = "Academic Year Tuition and Annual Financial Endowments Relation", xlab = "Annual Endowments In Billions", ylab = "Academic Year Tuition")
+abline(mylm)
+```
+
+The bottom x axis label is annual endowments in billions while the y is tuition in ten thousands. As shown, the slope is negative with points following a downward trend, but not maintaining good grouping close to the line. Despite this, we see a correlation of **-0.8069** indicating a negative relationship between tuition and endowment. As annual endowment increases, academic year tuition decreases. A more precise numerical value for our equation is:
+
+$$
+  \underbrace{\hat{Y}_i}_\text{Mean Tution} = 60116 + -1.441E^7 \underbrace{X_i}_\text{Endowment}
+$$
+
+The appropriateness of our test of regression for the dataset has to be satisfied before accepting the calculated values. The three graphs below will suggest the appropriateness of our study.
+
+```{r}
+par(mfrow = c(1, 3))
+plot(mylm, which = 1:2)
+plot(mylm$residuals, main = "Residuals vs Order")
+```
+
+Our Residuals vs Fitted graph is of concern as there appears a pattern showcasing no linearity between our x and y, violating assumptions #1 and #3. Our Q-Q plot appears to show a heavy tailed distribution, violating our assumption that the error terms are independent. Our third graph for residuals and order chart displays questionable but interesting results.
+
+### Interpretation
+
+Despite having a p value low enough to lead to a rejection of the null, our three plots demonstrate that the regression model is not a useful medium of interpreting the data. Our linearity has been compromised nullifying our precision of the b-intercept and making our p values insignificant. The independence of the error terms has also been compromised, leaving us to not trust in our own residuals as measures for the standard deviation.
+
+As such, our regression model isn't trustworthy and we fail to see a relationship between tuition and endowment among Ivy League schools.
+
+
+
+
